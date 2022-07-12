@@ -1,0 +1,32 @@
+{
+  "name": "spotify-manager",
+  "version": "1.0.0",
+  "description": "Personal Spotify playlist manager",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/20kaushik02/spotify-manager.git"
+  },
+  "author": "",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/20kaushik02/spotify-manager/issues"
+  },
+  "homepage": "https://github.com/20kaushik02/spotify-manager#readme",
+  "dependencies": {
+    "cookie-parser": "^1.4.6",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.1",
+    "express": "^4.18.1",
+    "express-validator": "^6.14.2",
+    "got": "^12.1.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.13",
+    "nodemon": "^2.0.19"
+  }
+}
