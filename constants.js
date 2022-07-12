@@ -1,0 +1,21 @@
+module.exports = {
+	scopes: {
+		ImageUpload: 'ugc-image-upload',
+		ControlPlayback: 'user-modify-playback-state',
+		ViewPlaybackState: 'user-read-playback-state',
+		ViewCurrentlyPlaying: 'user-read-currently-playing',
+		ModifyFollow: 'user-follow-modify',
+		ViewFollow: 'user-follow-read',
+		ViewRecentlyPlayed: 'user-read-recently-played',
+		ViewPlaybackPosition: 'user-read-playback-position',
+		ViewTop: 'user-top-read',
+		IncludeCollaborative: 'playlist-read-collaborative',
+		ModifyPublicPlaylists: 'playlist-modify-public',
+		ViewPrivatePlaylists: 'playlist-read-private',
+		ModifyPrivatePlaylists: 'playlist-modify-private',
+		ControlRemotePlayback: 'app-remote-control',
+		ModifyLibrary: 'user-library-modify',
+		ViewLibrary: 'user-library-read',
+	},
+	stateKey: 'spotify_auth_state'
+}
