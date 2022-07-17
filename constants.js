@@ -1,4 +1,5 @@
 module.exports = {
+	baseAPIURL: 'https://api.spotify.com/v1',
 	scopes: {
 		ImageUpload: 'ugc-image-upload',
 		ControlPlayback: 'user-modify-playback-state',
@@ -17,5 +18,5 @@ module.exports = {
 		ModifyLibrary: 'user-library-modify',
 		ViewLibrary: 'user-library-read',
 	},
-	stateKey: 'spotify_auth_state'
+	stateKey: 'spotify_auth_state',
 }

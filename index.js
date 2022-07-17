@@ -1,9 +1,18 @@
 require('dotenv').config();
 const express = require('express');
+const session = require("express-session");
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 
 const app = express();
+
+app.use(
+	session({
+		secret: process.env.SESSION_SECRET,
+		resave: true,
+		saveUninitialized: true
+	})
+);
 
 app.use(cors());
 app.use(cookieParser());
@@ -19,7 +28,7 @@ app.use((_req, res) => {
 	return res.status(404).send(
 		"Oops! You're not supposed to know about <a href=\"https://github.com/20kaushik02/spotify-manager\">this</a>..."
 	);
-})
+});
 
 const port = process.env.PORT || 3000;
 

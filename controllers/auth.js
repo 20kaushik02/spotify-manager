@@ -74,10 +74,14 @@ const callback = async (req, res) => {
 				const access_token = response.body.access_token;
 				const refresh_token = response.body.refresh_token;
 
+				req.session.accessToken = access_token;
+				req.session.refreshToken = refresh_token;
+				req.session.cookie.maxAge = response.body.expires_in * 1000;
+
+				req.session.save((err) => { if (err) throw err; });
+
 				return res.status(200).send({
-					message: "Auth tokens obtained.",
-					refresh_token,
-					access_token,
+					message: "Login successful",
 				});
 			}
 		}
@@ -112,8 +116,13 @@ const refresh = async (req, res) => {
 		const response = await got.post(authOptions);
 		if (response.statusCode === 200) {
 			const access_token = response.body.access_token;
+			const updated_refresh_token = response.body.refresh_token ?? null;
+
+			req.session.accessToken = access_token;
+			req.session.refreshToken = updated_refresh_token ?? refresh_token;
+
 			return res.status(200).send({
-				message: "New access token obtained.",
+				message: `New access token obtained${(updated_refresh_token !== null) ? ' and refresh token updated' : ''}.`,
 				access_token,
 			});
 		}
