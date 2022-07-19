@@ -19,20 +19,7 @@ const axiosInstance = axios.default.create({
 	},
 });
 
-const getAuthHeaders = (req) => {
-	let authHeaders;
-
-	if (req.session.access_token) {
-		authHeaders = {
-			'Authorization': req.session.access_token ? `Bearer ${req.session.access_token}` : '',
-		}
-	}
-
-	return authHeaders;
-};
-
 module.exports = {
 	authInstance,
 	axiosInstance,
-	getAuthHeaders,
 };

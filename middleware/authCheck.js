@@ -7,8 +7,10 @@ const typedefs = require("../typedefs");
  * @param {typedefs.Next} next 
  */
 const isAuthenticated = (req, res, next) => {
-	if (req.session.refreshToken && req.session.accessToken) next()
-	else {
+	if (req.session.refreshToken && req.session.accessToken) {
+		req.authHeader = `Bearer ${req.session.access_token}`;
+		next()
+	} else {
 		res.status(401).redirect("/");
 	}
 }
