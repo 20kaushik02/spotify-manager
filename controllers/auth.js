@@ -1,9 +1,11 @@
 require('dotenv').config();
+const { authInstance } = require("../axios");
 
 const typedefs = require("../typedefs");
-const { scopes, stateKey } = require('../constants');
+const { scopes, stateKey, accountsAPIURL } = require('../constants');
 
 const generateRandString = require('../utils/generateRandString');
+const { logger } = require('../utils/logger');
 
 /**
  * Stateful redirect to Spotify login with credentials
@@ -17,7 +19,7 @@ const login = (_req, res) => {
 
 		const scope = Object.values(scopes).join(' ');
 		return res.redirect(
-			'https://accounts.spotify.com/authorize?' +
+			`${accountsAPIURL}/authorize?` +
 			new URLSearchParams({
 				response_type: 'code',
 				client_id: process.env.CLIENT_ID,
@@ -27,7 +29,7 @@ const login = (_req, res) => {
 			}).toString()
 		);
 	} catch (error) {
-		console.error(error);
+		logger.error(error);
 		return res.status(500).send({ message: "Server Error. Try again." });
 	}
 }
@@ -39,54 +41,48 @@ const login = (_req, res) => {
  */
 const callback = async (req, res) => {
 	try {
-		const code = req.query.code || null;
-		const state = req.query.state || null;
-		const error = req.query.error || null;
+		const { code, state, error } = req.query;
 		const storedState = req.cookies ? req.cookies[stateKey] : null;
 
 		// check state
 		if (state === null || state !== storedState) {
-			console.error('state mismatch');
+			logger.error('state mismatch');
 			return res.redirect(409, '/');
-		} else if (error !== null) {
-			console.error(error);
+		} else if (error) {
+			logger.error('callback error', { error });
 			return res.status(401).send(`Error: ${error}`);
 		} else {
 			// get auth tokens
 			res.clearCookie(stateKey);
-			const authOptions = {
-				url: 'https://accounts.spotify.com/api/token',
-				form: {
-					code: code,
-					redirect_uri: process.env.REDIRECT_URI,
-					grant_type: 'authorization_code'
-				},
-				headers: {
-					'Authorization': 'Basic ' + (Buffer.from(process.env.CLIENT_ID + ':' + process.env.CLIENT_SECRET).toString('base64'))
-				},
-				responseType: 'json'
-			};
 
-			const { got } = await import("got");
+			const authForm = {
+				code: code,
+				redirect_uri: process.env.REDIRECT_URI,
+				grant_type: 'authorization_code'
+			}
 
-			const response = await got.post(authOptions);
-			if (response.statusCode === 200) {
-				const access_token = response.body.access_token;
-				const refresh_token = response.body.refresh_token;
+			const authPayload = (new URLSearchParams(authForm)).toString();
 
-				req.session.accessToken = access_token;
-				req.session.refreshToken = refresh_token;
-				req.session.cookie.maxAge = response.body.expires_in * 1000;
+			const response = await authInstance.post('/api/token', authPayload);
+
+			if (response.status === 200) {
+				req.session.accessToken = response.data.access_token;
+				req.session.refreshToken = response.data.refresh_token;
+				req.session.cookie.maxAge = response.data.expires_in * 1000;
 
 				req.session.save((err) => { if (err) throw err; });
 
+				logger.info('New login.')
 				return res.status(200).send({
 					message: "Login successful",
 				});
+			} else {
+				logger.error('login failed', { statusCode: response.status });
+				res.status(response.status).send('Error: Login failed');
 			}
 		}
 	} catch (error) {
-		console.error(error);
+		logger.error(error);
 		return res.status(500).send({ message: "Server Error. Try again." });
 	}
 }
@@ -98,36 +94,30 @@ const callback = async (req, res) => {
  */
 const refresh = async (req, res) => {
 	try {
-		const refresh_token = req.query.refresh_token;
-		const authOptions = {
-			url: 'https://accounts.spotify.com/api/token',
-			headers: {
-				'Authorization': 'Basic ' + (Buffer.from(process.env.CLIENT_ID + ':' + process.env.CLIENT_SECRET).toString('base64'))
-			},
-			form: {
-				grant_type: 'refresh_token',
-				refresh_token,
-			},
-			responseType: 'json'
-		};
+		const authForm = {
+			refresh_token: req.session.refreshToken,
+			grant_type: 'refresh_token',
+		}
 
-		const { got } = await import("got");
+		const authPayload = (new URLSearchParams(authForm)).toString();
 
-		const response = await got.post(authOptions);
+		const response = await authInstance.post('/api/token', authPayload);
+
 		if (response.statusCode === 200) {
-			const access_token = response.body.access_token;
-			const updated_refresh_token = response.body.refresh_token ?? null;
+			req.session.accessToken = response.data.access_token;
+			req.session.refreshToken = response.data.refresh_token ?? req.session.refreshToken;
+			req.session.cookie.maxAge = response.data.expires_in * 1000;
 
-			req.session.accessToken = access_token;
-			req.session.refreshToken = updated_refresh_token ?? refresh_token;
-
+			logger.info(`Access token refreshed${(response.data.refresh_token !== null) ? ' and refresh token updated' : ''}.`);
 			return res.status(200).send({
-				message: `New access token obtained${(updated_refresh_token !== null) ? ' and refresh token updated' : ''}.`,
-				access_token,
+				message: "New access token obtained",
 			});
+		} else {
+			logger.error('refresh failed', { statusCode: response.status });
+			res.status(response.status).send('Error: Refresh token flow failed.');
 		}
 	} catch (error) {
-		console.error(error);
+		logger.error(error);
 		return res.status(500).send({ message: "Server Error. Try again." });
 	}
 };
