@@ -5,7 +5,7 @@ const typedefs = require("../typedefs");
 const { scopes, stateKey, accountsAPIURL } = require('../constants');
 
 const generateRandString = require('../utils/generateRandString');
-const { logger } = require('../utils/logger');
+const logger = require('../utils/logger')(module);
 
 /**
  * Stateful redirect to Spotify login with credentials
@@ -29,7 +29,7 @@ const login = (_req, res) => {
 			}).toString()
 		);
 	} catch (error) {
-		logger.error(error);
+		logger.error('Error', { error });
 		return res.status(500).send({ message: "Server Error. Try again." });
 	}
 }
@@ -49,7 +49,7 @@ const callback = async (req, res) => {
 			logger.error('state mismatch');
 			return res.redirect(409, '/');
 		} else if (error) {
-			logger.error('callback error', { error });
+			logger.error('callback error', { authError: error });
 			return res.status(401).send(`Error: ${error}`);
 		} else {
 			// get auth tokens
@@ -82,7 +82,7 @@ const callback = async (req, res) => {
 			}
 		}
 	} catch (error) {
-		logger.error(error);
+		logger.error('Error', { error });
 		return res.status(500).send({ message: "Server Error. Try again." });
 	}
 }
@@ -117,7 +117,7 @@ const refresh = async (req, res) => {
 			res.status(response.status).send('Error: Refresh token flow failed.');
 		}
 	} catch (error) {
-		logger.error(error);
+		logger.error('Error', { error });
 		return res.status(500).send({ message: "Server Error. Try again." });
 	}
 };

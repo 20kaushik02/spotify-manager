@@ -1,5 +1,5 @@
 require('dotenv').config();
-const { logger } = require("../utils/logger");
+const logger = require("../utils/logger")(module);
 
 const typedefs = require("../typedefs");
 
@@ -11,7 +11,7 @@ const __controller_func = async (req, res) => {
 	try {
 		
 	} catch (error) {
-		logger.error(error);
+		logger.error('Error', { error });
 		return res.status(500).send({ message: "Server Error. Try again." });
 	}
 }

@@ -14,7 +14,11 @@ app.use(
 	})
 );
 
-app.use(cors());
+const corsOptions = {
+	origin: process.env.NODE_ENV === 'development' ? 'localhost:' + process.env.PORT : process.env.LIVE_URL,
+}
+
+app.use(cors(corsOptions));
 app.use(cookieParser());
 
 app.use(express.json());

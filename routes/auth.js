@@ -5,13 +5,11 @@ const validator = require("../validators");
 
 router.get(
 	"/login",
-	validator.validate,
 	login
 );
 
 router.get(
 	"/callback",
-	validator.validate,
 	callback
 );
 
