@@ -50,7 +50,7 @@ const callback = async (req, res) => {
 			return res.redirect(409, '/');
 		} else if (error) {
 			logger.error('callback error', { authError: error });
-			return res.status(401).send(`Error: ${error}`);
+			return res.status(401).send({ message: `Auth callback error` });
 		} else {
 			// get auth tokens
 			res.clearCookie(stateKey);

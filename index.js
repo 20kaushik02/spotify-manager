@@ -3,6 +3,7 @@ const express = require('express');
 const session = require("express-session");
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
+const helmet = require("helmet");
 
 const app = express();
 
@@ -20,6 +21,9 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 app.use(cookieParser());
+
+app.use(helmet());
+app.disable('x-powered-by')
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
