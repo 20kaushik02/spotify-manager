@@ -1,8 +1,11 @@
 const { validationResult } = require("express-validator");
 
 const typedefs = require("../typedefs");
+const { getNestedValuesString } = require("../utils/jsonTransformer");
 
 /**
+ * Refer: https://stackoverflow.com/questions/58848625/access-messages-in-express-validator
+ * 
  * @param {typedefs.Req} req 
  * @param {typedefs.Res} res 
  * @param {typedefs.Next} next 
@@ -18,7 +21,8 @@ const validate = (req, res, next) => {
 	}));
 
 	return res.status(400).json({
-		message: extractedErrors,
+		message: getNestedValuesString(extractedErrors),
+		errors: extractedErrors
 	})
 }
 

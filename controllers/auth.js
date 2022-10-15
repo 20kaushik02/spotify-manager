@@ -1,4 +1,3 @@
-require('dotenv').config();
 const { authInstance } = require("../axios");
 
 const typedefs = require("../typedefs");

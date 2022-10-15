@@ -1,4 +1,3 @@
-require('dotenv').config();
 const logger = require("../utils/logger")(module);
 
 const typedefs = require("../typedefs");
