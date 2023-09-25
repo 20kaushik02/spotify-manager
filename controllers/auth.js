@@ -1,4 +1,4 @@
-const { authInstance } = require("../axios");
+const { authInstance } = require("../utils/axios");
 
 const typedefs = require("../typedefs");
 const { scopes, stateKey, accountsAPIURL } = require('../constants');

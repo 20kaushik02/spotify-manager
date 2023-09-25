@@ -1,6 +1,6 @@
 const router = require('express').Router();
 
-const { getUserPlaylists } = require('../controllers/playlists');
+const { getUserPlaylists, getUserPlaylist } = require('../controllers/playlists');
 const { isAuthenticated } = require('../middleware/authCheck');
 const validator = require("../validators");
 
@@ -9,6 +9,12 @@ router.get(
 	isAuthenticated,
 	validator.validate,
 	getUserPlaylists
+);
+router.get(
+	"/details",
+	isAuthenticated,
+	validator.validate,
+	getUserPlaylist
 );
 
 module.exports = router;

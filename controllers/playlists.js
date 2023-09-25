@@ -1,7 +1,7 @@
 const logger = require("../utils/logger")(module);
 
 const typedefs = require("../typedefs");
-const { axiosInstance } = require('../axios');
+const { axiosInstance } = require('../utils/axios');
 
 /**
  * Retrieve list of all of user's playlists
@@ -26,15 +26,12 @@ const getUserPlaylists = async (req, res) => {
 			}
 		);
 
+		/** @type {typedefs.SimplifiedPlaylist[]} */
 		playlists.items = response.data.items.map((playlist) => {
 			return {
 				name: playlist.name,
 				description: playlist.description,
 				owner: playlist.owner.display_name,
-				images: playlist.images.map((image) => image.url),
-				link: playlist.external_urls.spotify,
-				collaborative: playlist.collaborative,
-				public: playlist.public,
 				id: playlist.id,
 			}
 		});
@@ -59,10 +56,6 @@ const getUserPlaylists = async (req, res) => {
 						name: playlist.name,
 						description: playlist.description,
 						owner: playlist.owner.display_name,
-						images: playlist.images.map((image) => image.url),
-						link: playlist.external_urls.spotify,
-						collaborative: playlist.collaborative,
-						public: playlist.public,
 						id: playlist.id,
 					}
 				})
@@ -73,11 +66,55 @@ const getUserPlaylists = async (req, res) => {
 
 		return res.status(200).send(playlists);
 	} catch (error) {
-		logger.error('Error', { error });
+		logger.error('getUserPlaylists', { error });
 		return res.status(500).send({ message: "Server Error. Try again." });
 	}
 }
 
+/**
+ * Retrieve single playlist
+ * @param {typedefs.Req} req 
+ * @param {typedefs.Res} res 
+ */
+const getUserPlaylist = async (req, res) => {
+	try {
+		/** @type {typedefs.Playlist} */
+		let playlist = {};
+
+		const response = await axiosInstance.get(
+			"/playlists/" + req.query.playlist_id,
+			{
+				headers: { ...req.authHeader }
+			}
+		);
+
+		// TODO: this whole section needs to be DRYer
+		playlist.uri = response.data.uri
+		playlist.name = response.data.name
+		playlist.description = response.data.description
+		let { display_name, uri, id, ...rest } = response.data.owner
+		playlist.owner = { display_name, uri, id }
+		playlist.followers = response.data.followers.total
+		playlist.tracks = response.data.tracks.items.map((playlist_track) => {
+			return {
+				added_at: playlist_track.added_at,
+				track: {
+					uri: playlist_track.track.uri,
+					name: playlist_track.track.name,
+					artists: playlist_track.track.artists.map((artist) => { return { name: artist.name } }),
+					album: { name: playlist_track.track.album.name },
+					is_local: playlist_track.track.is_local,
+				}
+			}
+		});
+
+		return res.status(200).send(playlist);
+	} catch (error) {
+		logger.error('getUserPlaylist', { error });
+		return res.status(500).send({ message: "Server Error. Try again." });
+	}
+}
 module.exports = {
-	getUserPlaylists
+	getUserPlaylists,
+	getUserPlaylist,
 };

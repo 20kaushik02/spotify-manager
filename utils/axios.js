@@ -1,7 +1,7 @@
 const axios = require('axios');
 
-const { baseAPIURL, accountsAPIURL } = require("./constants");
-const logger = require('./utils/logger')(module);
+const { baseAPIURL, accountsAPIURL } = require("../constants");
+const logger = require('./logger')(module);
 
 const authInstance = axios.default.create({
 	baseURL: accountsAPIURL,
