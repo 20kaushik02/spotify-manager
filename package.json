@@ -1,37 +1,38 @@
 {
   "name": "spotify-manager",
-  "version": "1.0.0",
+  "version": "0",
   "description": "Personal Spotify playlist manager",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "dev": "SET NODE_ENV=development& nodemon index.js"
+    "dev": "cross-env NODE_ENV=development nodemon index.js"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/20kaushik02/spotify-manager.git"
   },
-  "author": "",
   "license": "MIT",
+  "author": "Kaushik Ravishankar <rknarayan02@gmail.com>",
   "bugs": {
     "url": "https://github.com/20kaushik02/spotify-manager/issues"
   },
   "homepage": "https://github.com/20kaushik02/spotify-manager#readme",
   "dependencies": {
-    "axios": "^0.27.2",
-    "connect-redis": "^6.1.3",
+    "axios": "^1.5.0",
+    "connect-redis": "^7.1.0",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
-    "dotenv-flow": "^3.2.0",
-    "express": "^4.18.1",
+    "dotenv-flow": "^3.3.0",
+    "express": "^4.18.2",
     "express-session": "^1.17.3",
-    "express-validator": "^6.14.2",
-    "helmet": "^5.1.0",
-    "redis": "^4.3.0",
-    "winston": "^3.8.1"
+    "express-validator": "^7.0.1",
+    "helmet": "^7.0.0",
+    "redis": "^4.6.10",
+    "winston": "^3.10.0"
   },
   "devDependencies": {
-    "@types/express": "^4.17.13",
-    "nodemon": "^2.0.19"
+    "@types/express": "^4.17.18",
+    "cross-env": "^7.0.3",
+    "nodemon": "^3.0.1"
   }
 }

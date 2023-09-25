@@ -65,13 +65,18 @@ const callback = async (req, res) => {
 			const response = await authInstance.post('/api/token', authPayload);
 
 			if (response.status === 200) {
+				logger.info('New login.');
 				req.session.accessToken = response.data.access_token;
 				req.session.refreshToken = response.data.refresh_token;
 				req.session.cookie.maxAge = response.data.expires_in * 1000;
 
-				req.session.save((err) => { if (err) throw err; });
+				req.session.save((err) => {
+					if (err) {
+						logger.error("redis session save error", { sessionError: err })
+						throw err;
+					}
+				});
 
-				logger.info('New login.')
 				return res.status(200).send({
 					message: "Login successful",
 				});

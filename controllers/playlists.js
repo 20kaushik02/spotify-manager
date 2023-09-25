@@ -10,6 +10,8 @@ const { axiosInstance } = require('../axios');
  */
 const getUserPlaylists = async (req, res) => {
 	try {
+		let playlists = {};
+
 		// get first 50
 		const response = await axiosInstance.get(
 			"/me/playlists",
@@ -23,8 +25,6 @@ const getUserPlaylists = async (req, res) => {
 				}
 			}
 		);
-
-		let playlists = {};
 
 		playlists.items = response.data.items.map((playlist) => {
 			return {
@@ -42,10 +42,10 @@ const getUserPlaylists = async (req, res) => {
 		playlists.total = response.data.total;
 		playlists.next = response.data.next;
 
-		// keep getting batches of 50 more till exhausted
+		// keep getting batches of 50 till exhausted
 		while (playlists.next) {
 			const nextResponse = await axiosInstance.get(
-				playlists.next, // absolute URL which has params
+				playlists.next, // absolute URL from previous response which has offset and limit params
 				{
 					headers: {
 						...req.authHeader
