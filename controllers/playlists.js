@@ -89,6 +89,7 @@ const getUserPlaylist = async (req, res) => {
 		);
 
 		// TODO: this whole section needs to be DRYer
+		// look into serializr
 		playlist.uri = response.data.uri
 		playlist.name = response.data.name
 		playlist.description = response.data.description

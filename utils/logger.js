@@ -44,7 +44,7 @@ const logger = (callingModule) => {
     levels: config.npm.levels,
     format: combine(
       label({ label: getLabel(callingModule) }),
-      timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+      timestamp({ format: 'YYYY-MM-DD HH:mm:ss.SSS' }),
       logFormat,
     ),
     transports: [

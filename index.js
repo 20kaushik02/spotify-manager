@@ -1,22 +1,27 @@
 require('dotenv-flow').config();
+
 const express = require('express');
 const session = require("express-session");
+
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const helmet = require("helmet");
+
 const redis = require('redis');
 const RedisStore = require("connect-redis").default;
+const neo4j = require('neo4j-driver');
+
 const logger = require("./utils/logger")(module);
 
 const app = express();
 
 // Enable this if you run behind a proxy (e.g. nginx)
-app.set('trust proxy', 1);
+app.set('trust proxy', process.env.TRUST_PROXY);
 
-// Configure Redis client
+// Configure Redis client and connect
 const redisClient = redis.createClient({
-	host: process.env.NODE_ENV === 'development' ? 'localhost' : process.env.LIVE_URL,
-	port: 6379,
+	host: process.env.REDIS_HOST,
+	port: process.env.REDIS_PORT,
 });
 
 redisClient.connect()
@@ -25,9 +30,27 @@ redisClient.connect()
 	})
 	.catch((error) => {
 		logger.error("Redis connection error", { error });
+		cleanupFunc();
 	});
 
 const redisStore = new RedisStore({ client: redisClient });
+
+// Configure Neo4j driver and connect
+const neo4jDriver = neo4j.driver(
+	process.env.NEO4J_URL,
+	neo4j.auth.basic(process.env.NEO4J_USER, process.env.NEO4J_PASSWD)
+);
+const neo4jSession = neo4jDriver.session();
+
+(async () => {
+	try {
+		await neo4jSession.run('MATCH () RETURN 1 LIMIT 1');
+		logger.info("Connected to Neo4j graph DB");
+	} catch (error) {
+		logger.error("Neo4j connection error", { error });
+		cleanupFunc();
+	}
+})();
 
 // Configure session middleware
 app.use(session({
@@ -43,7 +66,7 @@ app.use(session({
 
 // Configure CORS options
 const corsOptions = {
-	origin: process.env.NODE_ENV === 'development' ? 'localhost:' + (process.env.PORT || 3000) : process.env.LIVE_URL,
+	origin: [process.env.CORS_ORIGIN],
 }
 
 app.use(cors(corsOptions));
@@ -72,6 +95,20 @@ app.use((_req, res) => {
 
 const port = process.env.PORT || 3000;
 
-app.listen(port, () => {
+const server = app.listen(port, () => {
 	logger.info(`App Listening on port ${port}`);
 });
+
+const cleanupFunc = async () => {
+	logger.debug('SIGTERM signal received: closing server');
+	if (neo4jSession) await neo4jSession.close();
+	if (neo4jDriver) await neo4jDriver.close();
+	logger.debug('Neo4j connection closed');
+	if (redisClient) await redisClient.disconnect();
+	logger.debug('Redis client disconnected');
+	server.close(() => {
+		logger.debug('HTTP server closed');
+	});
+}
+
+process.on('SIGTERM', cleanupFunc);
