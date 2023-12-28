@@ -45,6 +45,7 @@ const neo4jSession = neo4jDriver.session();
 (async () => {
 	try {
 		await neo4jSession.run('MATCH () RETURN 1 LIMIT 1');
+		app.locals.neodb = neo4jSession;
 		logger.info("Connected to Neo4j graph DB");
 	} catch (error) {
 		logger.error("Neo4j connection error", { error });
@@ -99,16 +100,16 @@ const server = app.listen(port, () => {
 	logger.info(`App Listening on port ${port}`);
 });
 
-const cleanupFunc = async () => {
-	logger.debug('SIGTERM signal received: closing server');
+const cleanupFunc = async (signal) => {
 	if (neo4jSession) await neo4jSession.close();
 	if (neo4jDriver) await neo4jDriver.close();
-	logger.debug('Neo4j connection closed');
+	logger.info('Neo4j connection closed');
 	if (redisClient) await redisClient.disconnect();
-	logger.debug('Redis client disconnected');
+	logger.info('Redis client disconnected');
 	server.close(() => {
-		logger.debug('HTTP server closed');
+		logger.info('HTTP server closed');
 	});
 }
 
+process.on('SIGINT', cleanupFunc);
 process.on('SIGTERM', cleanupFunc);

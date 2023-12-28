@@ -7,6 +7,8 @@
  * 
  * @typedef {import('winston').Logger} Logger
  * 
+ * @typedef {import('neo4j-driver').Session} Neo4jSession
+ * 
  * @typedef {{
  * display_name: string,
  * uri: string,

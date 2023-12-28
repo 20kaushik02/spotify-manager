@@ -2,22 +2,24 @@ const typedefs = require("../typedefs");
 const logger = require("../utils/logger")(module);
 
 /**
- * middleware to test if authenticated
- * 
- * TODO: not checking if tokens are valid
+ * middleware to check if access token is present
  * @param {typedefs.Req} req 
  * @param {typedefs.Res} res 
  * @param {typedefs.Next} next 
  */
 const isAuthenticated = (req, res, next) => {
-	if (req.session.refreshToken && req.session.accessToken) {
-		// TODO: find a better way to set bearer token
+	if (req.session.accessToken) {
 		req.authHeader = { 'Authorization': `Bearer ${req.session.accessToken}` };
 		next()
 	} else {
-		const delSession = req.session.destroy();
-		logger.info("Session destroyed.", { sessionID: delSession.id });
-		res.status(401).redirect("/");
+		const delSession = req.session.destroy((err) => {
+			if (err) {
+				logger.error("Error while destroying session.", { err });
+			} else {
+				logger.info("Session destroyed.", { sessionID: delSession.id });
+			}
+			return res.sendStatus(401);
+		});
 	}
 }
 

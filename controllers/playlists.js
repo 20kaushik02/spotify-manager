@@ -26,12 +26,15 @@ const getUserPlaylists = async (req, res) => {
 			}
 		);
 
+		if (response.status === 401)
+			return res.status(401).send(response.data);
+
 		/** @type {typedefs.SimplifiedPlaylist[]} */
 		playlists.items = response.data.items.map((playlist) => {
 			return {
 				name: playlist.name,
 				description: playlist.description,
-				owner: playlist.owner.display_name,
+				owner_name: playlist.owner.display_name,
 				id: playlist.id,
 			}
 		});
@@ -49,13 +52,15 @@ const getUserPlaylists = async (req, res) => {
 					}
 				}
 			);
+			if (response.status === 401)
+				return res.status(401).send(response.data);
 
 			playlists.items.push(
 				...nextResponse.data.items.map((playlist) => {
 					return {
 						name: playlist.name,
 						description: playlist.description,
-						owner: playlist.owner.display_name,
+						owner_name: playlist.owner.display_name,
 						id: playlist.id,
 					}
 				})
@@ -76,7 +81,7 @@ const getUserPlaylists = async (req, res) => {
  * @param {typedefs.Req} req 
  * @param {typedefs.Res} res 
  */
-const getUserPlaylist = async (req, res) => {
+const getPlaylistDetails = async (req, res) => {
 	try {
 		/** @type {typedefs.Playlist} */
 		let playlist = {};
@@ -87,6 +92,8 @@ const getUserPlaylist = async (req, res) => {
 				headers: { ...req.authHeader }
 			}
 		);
+		if (response.status === 401)
+			return res.status(401).send(response.data);
 
 		// TODO: this whole section needs to be DRYer
 		// look into serializr
@@ -95,7 +102,10 @@ const getUserPlaylist = async (req, res) => {
 		playlist.description = response.data.description
 		let { display_name, uri, id, ...rest } = response.data.owner
 		playlist.owner = { display_name, uri, id }
-		playlist.followers = response.data.followers.total
+		playlist.followers = response.data.followers
+		playlist.total = response.data.tracks.total;
+		playlist.next = response.data.tracks.next;
+
 		playlist.tracks = response.data.tracks.items.map((playlist_track) => {
 			return {
 				added_at: playlist_track.added_at,
@@ -109,13 +119,46 @@ const getUserPlaylist = async (req, res) => {
 			}
 		});
 
+
+		// keep getting batches of 50 till exhausted
+		while (playlist.next) {
+			const nextResponse = await axiosInstance.get(
+				playlist.next, // absolute URL from previous response which has offset and limit params
+				{
+					headers: {
+						...req.authHeader
+					}
+				}
+			);
+			if (nextResponse.status === 401)
+				return res.status(401).send(nextResponse.data);
+
+			playlist.tracks.push(
+				...nextResponse.data.items.map((playlist_track) => {
+					return {
+						added_at: playlist_track.added_at,
+						track: {
+							uri: playlist_track.track.uri,
+							name: playlist_track.track.name,
+							artists: playlist_track.track.artists.map((artist) => { return { name: artist.name } }),
+							album: { name: playlist_track.track.album.name },
+							is_local: playlist_track.track.is_local,
+						}
+					}
+				})
+			);
+
+			playlist.next = nextResponse.data.next;
+		}
+
 		return res.status(200).send(playlist);
 	} catch (error) {
-		logger.error('getUserPlaylist', { error });
+		logger.error('getPlaylistDetails', { error });
 		return res.status(500).send({ message: "Server Error. Try again." });
 	}
 }
+
 module.exports = {
 	getUserPlaylists,
-	getUserPlaylist,
+	getPlaylistDetails,
 };

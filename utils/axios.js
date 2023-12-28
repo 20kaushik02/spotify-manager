@@ -41,6 +41,7 @@ axiosInstance.interceptors.response.use(
 					data: error.response.data
 				}
 			});
+			return error.response;
 		} else if (error.request) {
 			// The request was made but no response was received
 			logger.error(

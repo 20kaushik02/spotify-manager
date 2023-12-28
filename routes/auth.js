@@ -1,6 +1,6 @@
 const router = require('express').Router();
 
-const { login, callback, refresh } = require('../controllers/auth');
+const { login, callback, refresh, logout } = require('../controllers/auth');
 const validator = require("../validators");
 
 router.get(
@@ -19,4 +19,8 @@ router.get(
 	refresh
 )
 
+router.get(
+	"/logout",
+	logout,
+)
 module.exports = router;

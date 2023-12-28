@@ -1,7 +1,7 @@
 const { authInstance } = require("../utils/axios");
 
 const typedefs = require("../typedefs");
-const { scopes, stateKey, accountsAPIURL } = require('../constants');
+const { scopes, stateKey, accountsAPIURL, sessionAgeInSeconds } = require('../constants');
 
 const generateRandString = require('../utils/generateRandString');
 const logger = require('../utils/logger')(module);
@@ -28,7 +28,7 @@ const login = (_req, res) => {
 			}).toString()
 		);
 	} catch (error) {
-		logger.error('Error', { error });
+		logger.error('login', { error });
 		return res.status(500).send({ message: "Server Error. Try again." });
 	}
 }
@@ -68,7 +68,7 @@ const callback = async (req, res) => {
 				logger.info('New login.');
 				req.session.accessToken = response.data.access_token;
 				req.session.refreshToken = response.data.refresh_token;
-				req.session.cookie.maxAge = response.data.expires_in * 1000;
+				// note that session does not expire; so infinite refresh, just default access token expiration
 
 				req.session.save((err) => {
 					if (err) {
@@ -86,7 +86,7 @@ const callback = async (req, res) => {
 			}
 		}
 	} catch (error) {
-		logger.error('Error', { error });
+		logger.error('callback', { error });
 		return res.status(500).send({ message: "Server Error. Try again." });
 	}
 }
@@ -107,10 +107,9 @@ const refresh = async (req, res) => {
 
 		const response = await authInstance.post('/api/token', authPayload);
 
-		if (response.statusCode === 200) {
+		if (response.status === 200) {
 			req.session.accessToken = response.data.access_token;
-			req.session.refreshToken = response.data.refresh_token ?? req.session.refreshToken;
-			req.session.cookie.maxAge = response.data.expires_in * 1000;
+			req.session.refreshToken = response.data.refresh_token ?? req.session.refreshToken; // refresh token rotation
 
 			logger.info(`Access token refreshed${(response.data.refresh_token !== null) ? ' and refresh token updated' : ''}.`);
 			return res.status(200).send({
@@ -118,16 +117,38 @@ const refresh = async (req, res) => {
 			});
 		} else {
 			logger.error('refresh failed', { statusCode: response.status });
-			res.status(response.status).send('Error: Refresh token flow failed.');
+			return res.status(response.status).send('Error: Refresh token flow failed.');
 		}
 	} catch (error) {
-		logger.error('Error', { error });
+		logger.error('refresh', { error });
 		return res.status(500).send({ message: "Server Error. Try again." });
 	}
 };
 
+/**
+ * Clear session
+ * @param {typedefs.Req} req
+ * @param {typedefs.Res} res
+ */
+const logout = async (req, res) => {
+	try {
+		const delSession = req.session.destroy((err) => {
+			if (Object.keys(err).length) {
+				logger.error("Error while logging out", { err });
+			} else {
+				logger.info("Logged out.", { sessionID: delSession.id });
+			}
+			return res.sendStatus(200);
+		})
+	} catch (error) {
+		logger.error('logout', { error });
+		return res.status(500).send({ message: "Server Error. Try again." });
+	}
+}
+
 module.exports = {
 	login,
 	callback,
-	refresh
+	refresh,
+	logout,
 };

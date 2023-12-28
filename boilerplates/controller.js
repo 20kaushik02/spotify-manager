@@ -10,7 +10,7 @@ const __controller_func = async (req, res) => {
 	try {
 		
 	} catch (error) {
-		logger.error('Error', { error });
+		logger.error('__controller_func', { error });
 		return res.status(500).send({ message: "Server Error. Try again." });
 	}
 }
