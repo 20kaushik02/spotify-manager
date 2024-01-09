@@ -13,12 +13,14 @@ const isAuthenticated = (req, res, next) => {
 		next()
 	} else {
 		const delSession = req.session.destroy((err) => {
-			if (err) {
+			if (Object.keys(err).length) {
 				logger.error("Error while destroying session.", { err });
+				return res.status(500).send("Server error, try later.");
 			} else {
-				logger.info("Session destroyed.", { sessionID: delSession.id });
+				logger.info("Session invalid, destroyed.", { sessionID: delSession.id });
+				res.clearCookie("connect.sid");
+				return res.sendStatus(401);
 			}
-			return res.sendStatus(401);
 		});
 	}
 }

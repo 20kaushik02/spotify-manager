@@ -135,10 +135,12 @@ const logout = async (req, res) => {
 		const delSession = req.session.destroy((err) => {
 			if (Object.keys(err).length) {
 				logger.error("Error while logging out", { err });
+				return res.sendStatus(500);
 			} else {
 				logger.info("Logged out.", { sessionID: delSession.id });
+				res.clearCookie("connect.sid");
+				return res.sendStatus(200);
 			}
-			return res.sendStatus(200);
 		})
 	} catch (error) {
 		logger.error('logout', { error });
