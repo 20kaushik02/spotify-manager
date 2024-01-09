@@ -28,7 +28,7 @@
     "express-validator": "^7.0.1",
     "helmet": "^7.0.0",
     "neo4j-driver": "^5.15.0",
-    "redis": "^4.6.10",
+    "redis": "^4.6.12",
     "winston": "^3.10.0"
   },
   "devDependencies": {
