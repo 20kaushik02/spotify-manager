@@ -18,7 +18,7 @@
   },
   "homepage": "https://github.com/20kaushik02/spotify-manager#readme",
   "dependencies": {
-    "axios": "^1.5.0",
+    "axios": "^1.6.5",
     "connect-redis": "^7.1.0",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
