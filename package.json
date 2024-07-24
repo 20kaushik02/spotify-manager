@@ -19,7 +19,7 @@
   "homepage": "https://github.com/20kaushik02/spotify-manager#readme",
   "dependencies": {
     "axios": "^1.5.0",
-    "connect-redis": "^7.1.0",
+    "connect-sqlite3": "^0.9.15",
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "dotenv-flow": "^3.3.0",
@@ -27,7 +27,6 @@
     "express-session": "^1.17.3",
     "express-validator": "^7.0.1",
     "helmet": "^7.0.0",
-    "redis": "^4.6.10",
     "winston": "^3.10.0"
   },
   "devDependencies": {

@@ -11,7 +11,7 @@ const __controller_func = async (req, res) => {
 		
 	} catch (error) {
 		logger.error('__controller_func', { error });
-		return res.status(500).send({ message: "Server Error. Try again." });
+		return res.sendStatus(500);
 	}
 }
 

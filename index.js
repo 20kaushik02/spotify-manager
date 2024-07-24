@@ -8,8 +8,7 @@ const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const helmet = require("helmet");
 
-const redis = require('redis');
-const RedisStore = require("connect-redis").default;
+const SQLiteStore = require("connect-sqlite3")(session);
 
 const logger = require("./utils/logger")(module);
 
@@ -18,26 +17,15 @@ const app = express();
 // Enable this if you run behind a proxy (e.g. nginx)
 app.set('trust proxy', process.env.TRUST_PROXY);
 
-// Configure Redis client and connect
-const redisClient = redis.createClient({
-	host: process.env.REDIS_HOST,
-	port: process.env.REDIS_PORT,
+// Configure SQLite store file
+const sqliteStore = new SQLiteStore({
+	table: "session_store",
+	db: "spotify-manager.db"
 });
-
-redisClient.connect()
-	.then(() => {
-		logger.info("Connected to Redis store");
-	})
-	.catch((error) => {
-		logger.error("Redis connection error", { error });
-		cleanupFunc();
-	});
-
-const redisStore = new RedisStore({ client: redisClient });
 
 // Configure session middleware
 app.use(session({
-	store: redisStore,
+	store: sqliteStore,
 	secret: process.env.SESSION_SECRET,
 	resave: false,
 	saveUninitialized: false,
@@ -84,7 +72,6 @@ const server = app.listen(port, () => {
 
 const cleanupFunc = (signal) => {
 	Promise.allSettled([
-		redisClient.disconnect,
 		util.promisify(server.close),
 	]).then(() => {
 		if (signal)

@@ -13,9 +13,9 @@ const isAuthenticated = (req, res, next) => {
 		next()
 	} else {
 		const delSession = req.session.destroy((err) => {
-			if (Object.keys(err).length) {
+			if (err) {
 				logger.error("Error while destroying session.", { err });
-				return res.status(500).send("Server error, try later.");
+				return res.sendStatus(500);
 			} else {
 				logger.info("Session invalid, destroyed.", { sessionID: delSession.id });
 				res.clearCookie("connect.sid");

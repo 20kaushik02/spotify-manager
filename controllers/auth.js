@@ -29,7 +29,7 @@ const login = (_req, res) => {
 		);
 	} catch (error) {
 		logger.error('login', { error });
-		return res.status(500).send({ message: "Server Error. Try again." });
+		return res.sendStatus(500);
 	}
 }
 
@@ -68,7 +68,7 @@ const callback = async (req, res) => {
 				logger.info('New login.');
 				req.session.accessToken = response.data.access_token;
 				req.session.refreshToken = response.data.refresh_token;
-				req.session.cookie.maxAge = 7776000000 // 90 days, arbitrary
+				req.session.cookie.maxAge = 7 * 24 * 60 * 60 * 1000 // 1 week
 
 				req.session.save((err) => {
 					if (err) {
@@ -87,7 +87,7 @@ const callback = async (req, res) => {
 		}
 	} catch (error) {
 		logger.error('callback', { error });
-		return res.status(500).send({ message: "Server Error. Try again." });
+		return res.sendStatus(500);
 	}
 }
 
@@ -110,7 +110,7 @@ const refresh = async (req, res) => {
 		if (response.status === 200) {
 			req.session.accessToken = response.data.access_token;
 			req.session.refreshToken = response.data.refresh_token ?? req.session.refreshToken; // refresh token rotation
-			req.session.cookie.maxAge = 7776000000 // 90 days, arbitrary
+			req.session.cookie.maxAge = 7 * 24 * 60 * 60 * 1000 // 1 week
 
 			logger.info(`Access token refreshed${(response.data.refresh_token !== null) ? ' and refresh token updated' : ''}.`);
 			return res.status(200).send({
@@ -122,7 +122,7 @@ const refresh = async (req, res) => {
 		}
 	} catch (error) {
 		logger.error('refresh', { error });
-		return res.status(500).send({ message: "Server Error. Try again." });
+		return res.sendStatus(500);
 	}
 };
 
@@ -134,7 +134,7 @@ const refresh = async (req, res) => {
 const logout = async (req, res) => {
 	try {
 		const delSession = req.session.destroy((err) => {
-			if (Object.keys(err).length) { // err is empty obj if no error
+			if (err) {
 				logger.error("Error while logging out", { err });
 				return res.sendStatus(500);
 			} else {
@@ -145,7 +145,7 @@ const logout = async (req, res) => {
 		})
 	} catch (error) {
 		logger.error('logout', { error });
-		return res.status(500).send({ message: "Server Error. Try again." });
+		return res.sendStatus(500);
 	}
 }
 

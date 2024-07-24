@@ -73,7 +73,7 @@ const getUserPlaylists = async (req, res) => {
 		return res.status(200).send(playlists);
 	} catch (error) {
 		logger.error('getUserPlaylists', { error });
-		return res.status(500).send({ message: "Server Error. Try again." });
+		return res.sendStatus(500);
 	}
 }
 
@@ -155,7 +155,7 @@ const getPlaylistDetails = async (req, res) => {
 		return res.status(200).send(playlist);
 	} catch (error) {
 		logger.error('getPlaylistDetails', { error });
-		return res.status(500).send({ message: "Server Error. Try again." });
+		return res.sendStatus(500);
 	}
 }
 
