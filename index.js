@@ -1,5 +1,6 @@
 require('dotenv-flow').config();
 
+const util = require('util');
 const express = require('express');
 const session = require("express-session");
 
@@ -9,7 +10,6 @@ const helmet = require("helmet");
 
 const redis = require('redis');
 const RedisStore = require("connect-redis").default;
-const neo4j = require('neo4j-driver');
 
 const logger = require("./utils/logger")(module);
 
@@ -34,24 +34,6 @@ redisClient.connect()
 	});
 
 const redisStore = new RedisStore({ client: redisClient });
-
-// Configure Neo4j driver and connect
-const neo4jDriver = neo4j.driver(
-	process.env.NEO4J_URL,
-	neo4j.auth.basic(process.env.NEO4J_USER, process.env.NEO4J_PASSWD)
-);
-const neo4jSession = neo4jDriver.session();
-
-(async () => {
-	try {
-		await neo4jSession.run('MATCH () RETURN 1 LIMIT 1');
-		app.locals.neodb = neo4jSession;
-		logger.info("Connected to Neo4j graph DB");
-	} catch (error) {
-		logger.error("Neo4j connection error", { error });
-		cleanupFunc();
-	}
-})();
 
 // Configure session middleware
 app.use(session({
@@ -100,16 +82,18 @@ const server = app.listen(port, () => {
 	logger.info(`App Listening on port ${port}`);
 });
 
-const cleanupFunc = async (signal) => {
-	if (neo4jSession) await neo4jSession.close();
-	if (neo4jDriver) await neo4jDriver.close();
-	logger.info('Neo4j connection closed');
-	if (redisClient) await redisClient.disconnect();
-	logger.info('Redis client disconnected');
-	server.close(() => {
-		logger.info('HTTP server closed');
+const cleanupFunc = (signal) => {
+	Promise.allSettled([
+		redisClient.disconnect,
+		util.promisify(server.close),
+	]).then(() => {
+		if (signal)
+			logger.info(`Caught ${signal} signal`);
+		logger.info("Cleaned up, exiting...");
+		process.exit(0);
 	});
 }
 
-process.on('SIGINT', cleanupFunc);
-process.on('SIGTERM', cleanupFunc);
+['SIGHUP', 'SIGINT', 'SIGQUIT', 'SIGTERM', 'SIGUSR1', 'SIGUSR2'].forEach((signal) => {
+	process.on(signal, () => cleanupFunc(signal));
+});

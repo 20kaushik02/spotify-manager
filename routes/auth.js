@@ -1,6 +1,7 @@
 const router = require('express').Router();
 
 const { login, callback, refresh, logout } = require('../controllers/auth');
+const { isAuthenticated } = require('../middleware/authCheck');
 const validator = require("../validators");
 
 router.get(
@@ -15,7 +16,7 @@ router.get(
 
 router.get(
 	"/refresh",
-	validator.validate,
+	isAuthenticated,
 	refresh
 )
 

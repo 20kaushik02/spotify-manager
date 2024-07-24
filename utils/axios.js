@@ -34,7 +34,7 @@ axiosInstance.interceptors.response.use(
 		if (error.response) {
 			// Server has responded
 			logger.error(
-				"API: Error", {
+				"Spotify API: Error", {
 				response: {
 					status: error.response.status,
 					statusText: error.response.statusText,
@@ -45,7 +45,7 @@ axiosInstance.interceptors.response.use(
 		} else if (error.request) {
 			// The request was made but no response was received
 			logger.error(
-				"API: No response", {
+				"Spotify API: No response", {
 				request: {
 					url: error.request?.url,
 					params: error.request?.params,
@@ -54,7 +54,7 @@ axiosInstance.interceptors.response.use(
 		} else {
 			// Something happened in setting up the request that triggered an Error
 			logger.error(
-				"API: Request error", {
+				"Spotify API: Request error", {
 				error: {
 					message: error.message,
 				}

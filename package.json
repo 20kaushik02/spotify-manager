@@ -27,7 +27,6 @@
     "express-session": "^1.17.3",
     "express-validator": "^7.0.1",
     "helmet": "^7.0.0",
-    "neo4j-driver": "^5.15.0",
     "redis": "^4.6.10",
     "winston": "^3.10.0"
   },

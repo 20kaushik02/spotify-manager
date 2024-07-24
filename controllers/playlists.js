@@ -26,8 +26,9 @@ const getUserPlaylists = async (req, res) => {
 			}
 		);
 
-		if (response.status === 401)
+		if (response.status === 401)	{
 			return res.status(401).send(response.data);
+		}
 
 		/** @type {typedefs.SimplifiedPlaylist[]} */
 		playlists.items = response.data.items.map((playlist) => {

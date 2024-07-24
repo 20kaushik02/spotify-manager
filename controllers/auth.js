@@ -68,7 +68,7 @@ const callback = async (req, res) => {
 				logger.info('New login.');
 				req.session.accessToken = response.data.access_token;
 				req.session.refreshToken = response.data.refresh_token;
-				// note that session does not expire; so infinite refresh, just default access token expiration
+				req.session.cookie.maxAge = 7776000000 // 90 days, arbitrary
 
 				req.session.save((err) => {
 					if (err) {
@@ -110,6 +110,7 @@ const refresh = async (req, res) => {
 		if (response.status === 200) {
 			req.session.accessToken = response.data.access_token;
 			req.session.refreshToken = response.data.refresh_token ?? req.session.refreshToken; // refresh token rotation
+			req.session.cookie.maxAge = 7776000000 // 90 days, arbitrary
 
 			logger.info(`Access token refreshed${(response.data.refresh_token !== null) ? ' and refresh token updated' : ''}.`);
 			return res.status(200).send({
@@ -133,7 +134,7 @@ const refresh = async (req, res) => {
 const logout = async (req, res) => {
 	try {
 		const delSession = req.session.destroy((err) => {
-			if (Object.keys(err).length) {
+			if (Object.keys(err).length) { // err is empty obj if no error
 				logger.error("Error while logging out", { err });
 				return res.sendStatus(500);
 			} else {

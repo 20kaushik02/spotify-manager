@@ -1,7 +1,7 @@
 const path = require("path");
 
 const { createLogger, transports, config, format } = require('winston');
-const { combine, label, timestamp, printf } = format;
+const { combine, label, timestamp, printf, errors } = format;
 
 const typedefs = require("../typedefs");
 
@@ -12,21 +12,26 @@ const getLabel = (callingModule) => {
 
 const logMetaReplacer = (key, value) => {
   if (key === "error") {
-    return value.name + ': ' + value.message;
+    return {
+      name: value.name,
+      message: value.message,
+      stack: value.stack
+    };
   }
   return value;
 }
 
 const metaFormat = (meta) => {
   if (Object.keys(meta).length > 0)
-    return '\n' + JSON.stringify(meta, logMetaReplacer) + '\n';
+    return '\n' + JSON.stringify(meta, logMetaReplacer, "\t") + '\n';
   return '\n';
 }
 
 const logFormat = printf(({ level, message, label, timestamp, ...meta }) => {
   if (meta.error) {
     for (const key in meta.error) {
-      if (typeof key !== "symbol" && key !== "message" && key !== "name") {
+      const allowedErrorKeys = ["name", "message", "stack"]
+      if (typeof key !== "symbol" && !allowedErrorKeys.includes(key)) {
         delete meta.error[key]
       }
     }
@@ -43,6 +48,7 @@ const logger = (callingModule) => {
   return createLogger({
     levels: config.npm.levels,
     format: combine(
+      errors({ stack: true }),
       label({ label: getLabel(callingModule) }),
       timestamp({ format: 'YYYY-MM-DD HH:mm:ss.SSS' }),
       logFormat,
@@ -51,7 +57,7 @@ const logger = (callingModule) => {
       process.env.NODE_ENV !== 'production' ?
         new transports.Console() :
         new transports.Console(),
-        new transports.File({ filename: __dirname + '/../logs/common.log' }),
+      new transports.File({ filename: __dirname + '/../logs/common.log' }),
       new transports.File({ filename: __dirname + '/../logs/error.log', level: 'error' }),
     ]
   });
