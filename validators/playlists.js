@@ -18,6 +18,5 @@ const getPlaylistDetailsValidator = async (req, res, next) => {
 }
 
 module.exports = {
-	getPlaylistDetailsValidator,
+	getPlaylistDetailsValidator
 }
-

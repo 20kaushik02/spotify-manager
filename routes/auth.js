@@ -18,10 +18,11 @@ router.get(
 	"/refresh",
 	isAuthenticated,
 	refresh
-)
+);
 
 router.get(
 	"/logout",
-	logout,
-)
+	logout
+);
+
 module.exports = router;

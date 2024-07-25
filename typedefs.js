@@ -9,14 +9,11 @@
  * 
  * @typedef {{
  * display_name: string,
- * uri: string,
  * id: string
- * }} PlaylistOwner
+ * }} User
  * 
  * @typedef {{
  * name: string,
- * description: string,
- * owner: PlaylistOwner,
  * id: string,
  * }} SimplifiedPlaylist
  * 
@@ -45,7 +42,7 @@
  * uri: string,
  * name: string,
  * description: string,
- * owner: PlaylistOwner,
+ * owner: User,
  * followers: {
  * 	total: number
  * },

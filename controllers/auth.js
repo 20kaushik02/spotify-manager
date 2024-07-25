@@ -1,4 +1,4 @@
-const { authInstance } = require("../utils/axios");
+const { authInstance, axiosInstance } = require("../utils/axios");
 
 const typedefs = require("../typedefs");
 const { scopes, stateKey, accountsAPIURL, sessionAgeInSeconds } = require('../constants');
@@ -62,28 +62,36 @@ const callback = async (req, res) => {
 
 			const authPayload = (new URLSearchParams(authForm)).toString();
 
-			const response = await authInstance.post('/api/token', authPayload);
+			const tokenResponse = await authInstance.post('/api/token', authPayload);
 
-			if (response.status === 200) {
+			if (tokenResponse.status === 200) {
 				logger.info('New login.');
-				req.session.accessToken = response.data.access_token;
-				req.session.refreshToken = response.data.refresh_token;
+				req.session.accessToken = tokenResponse.data.access_token;
+				req.session.refreshToken = tokenResponse.data.refresh_token;
 				req.session.cookie.maxAge = 7 * 24 * 60 * 60 * 1000 // 1 week
-
-				req.session.save((err) => {
-					if (err) {
-						logger.error("redis session save error", { sessionError: err })
-						throw err;
-					}
-				});
-
-				return res.status(200).send({
-					message: "Login successful",
-				});
 			} else {
-				logger.error('login failed', { statusCode: response.status });
-				res.status(response.status).send('Error: Login failed');
+				logger.error('login failed', { statusCode: tokenResponse.status });
+				res.status(tokenResponse.status).send('Error: Login failed');
 			}
+
+			const userResponse = await axiosInstance.get(
+				"/me",
+				{
+					headers: {
+						'Authorization': `Bearer ${req.session.accessToken}`
+					}
+				}
+			);
+
+			/** @type {typedefs.User} */
+			req.session.user = {
+				username: userResponse.data.display_name,
+				id: userResponse.data.id,
+			};
+
+			return res.status(200).send({
+				message: "Login successful",
+			});
 		}
 	} catch (error) {
 		logger.error('callback', { error });
@@ -153,5 +161,5 @@ module.exports = {
 	login,
 	callback,
 	refresh,
-	logout,
+	logout
 };

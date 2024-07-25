@@ -8,7 +8,7 @@ const typedefs = require("../typedefs");
  */
 const __controller_func = async (req, res) => {
 	try {
-		
+
 	} catch (error) {
 		logger.error('__controller_func', { error });
 		return res.sendStatus(500);

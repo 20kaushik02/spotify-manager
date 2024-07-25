@@ -23,10 +23,11 @@ const axiosInstance = axios.default.create({
 axiosInstance.interceptors.request.use(request => {
 	logger.info("API call", {
 		url: request.url,
-		params: request.params,
+		method: request.method,
+		params: request.params ?? {},
 	});
 	return request;
-})
+});
 
 axiosInstance.interceptors.response.use(
 	(response) => response,
@@ -62,9 +63,9 @@ axiosInstance.interceptors.response.use(
 		}
 		return Promise.reject(error);
 	}
-)
+);
 
 module.exports = {
 	authInstance,
-	axiosInstance,
+	axiosInstance
 };

@@ -19,7 +19,7 @@ const scopes = {
 	ModifyPrivatePlaylists: 'playlist-modify-private',
 	ControlRemotePlayback: 'app-remote-control',
 	ModifyLibrary: 'user-library-modify',
-	ViewLibrary: 'user-library-read',
+	ViewLibrary: 'user-library-read'
 };
 
 module.exports = {

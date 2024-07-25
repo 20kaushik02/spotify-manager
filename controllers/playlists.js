@@ -14,7 +14,7 @@ const getUserPlaylists = async (req, res) => {
 
 		// get first 50
 		const response = await axiosInstance.get(
-			"/me/playlists",
+			`/users/${req.session.user.id}/playlists`,
 			{
 				params: {
 					offset: 0,
@@ -26,7 +26,7 @@ const getUserPlaylists = async (req, res) => {
 			}
 		);
 
-		if (response.status === 401)	{
+		if (response.status === 401) {
 			return res.status(401).send(response.data);
 		}
 
@@ -34,9 +34,7 @@ const getUserPlaylists = async (req, res) => {
 		playlists.items = response.data.items.map((playlist) => {
 			return {
 				name: playlist.name,
-				description: playlist.description,
-				owner_name: playlist.owner.display_name,
-				id: playlist.id,
+				id: playlist.id
 			}
 		});
 
@@ -60,15 +58,15 @@ const getUserPlaylists = async (req, res) => {
 				...nextResponse.data.items.map((playlist) => {
 					return {
 						name: playlist.name,
-						description: playlist.description,
-						owner_name: playlist.owner.display_name,
-						id: playlist.id,
+						id: playlist.id
 					}
 				})
 			);
 
 			playlists.next = nextResponse.data.next;
 		}
+
+		delete playlists.next;
 
 		return res.status(200).send(playlists);
 	} catch (error) {
@@ -161,5 +159,5 @@ const getPlaylistDetails = async (req, res) => {
 
 module.exports = {
 	getUserPlaylists,
-	getPlaylistDetails,
+	getPlaylistDetails
 };

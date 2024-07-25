@@ -24,9 +24,9 @@ const validate = (req, res, next) => {
 	return res.status(400).json({
 		message: getNestedValuesString(extractedErrors),
 		errors: extractedErrors
-	})
+	});
 }
 
 module.exports = {
-	validate,
+	validate
 }

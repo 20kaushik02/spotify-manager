@@ -35,12 +35,7 @@ app.use(session({
 	}
 }));
 
-// Configure CORS options
-const corsOptions = {
-	origin: [process.env.CORS_ORIGIN],
-}
-
-app.use(cors(corsOptions));
+app.use(cors());
 app.use(cookieParser());
 
 // Configure helmet
