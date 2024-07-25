@@ -48,8 +48,8 @@ const callback = async (req, res) => {
 			logger.error('state mismatch');
 			return res.redirect(409, '/');
 		} else if (error) {
-			logger.error('callback error', { authError: error });
-			return res.status(401).send({ message: `Auth callback error` });
+			logger.error('callback error', { error });
+			return res.status(401).send("Auth callback error");
 		} else {
 			// get auth tokens
 			res.clearCookie(stateKey);
@@ -86,12 +86,10 @@ const callback = async (req, res) => {
 			/** @type {typedefs.User} */
 			req.session.user = {
 				username: userResponse.data.display_name,
-				id: userResponse.data.id,
+				uri: userResponse.data.uri,
 			};
 
-			return res.status(200).send({
-				message: "Login successful",
-			});
+			return res.sendStatus(200);
 		}
 	} catch (error) {
 		logger.error('callback', { error });
@@ -121,9 +119,7 @@ const refresh = async (req, res) => {
 			req.session.cookie.maxAge = 7 * 24 * 60 * 60 * 1000 // 1 week
 
 			logger.info(`Access token refreshed${(response.data.refresh_token !== null) ? ' and refresh token updated' : ''}.`);
-			return res.status(200).send({
-				message: "New access token obtained",
-			});
+			return res.sendStatus(200);
 		} else {
 			logger.error('refresh failed', { statusCode: response.status });
 			return res.status(response.status).send('Error: Refresh token flow failed.');

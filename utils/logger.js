@@ -10,12 +10,14 @@ const getLabel = (callingModule) => {
     return path.join(parts[parts.length - 2], parts.pop());
 };
 
+const allowedErrorKeys = ["name", "message", "stack"];
+
 const logMetaReplacer = (key, value) => {
     if (key === "error") {
         return {
             name: value.name,
             message: value.message,
-            stack: value.stack
+            stack: value.stack,
         };
     }
     return value;
@@ -28,11 +30,10 @@ const metaFormat = (meta) => {
 }
 
 const logFormat = printf(({ level, message, label, timestamp, ...meta }) => {
-    if (meta.error) {
+    if (meta.error) { // if the error was passed
         for (const key in meta.error) {
-            const allowedErrorKeys = ["name", "message", "stack"]
-            if (typeof key !== "symbol" && !allowedErrorKeys.includes(key)) {
-                delete meta.error[key]
+            if (!allowedErrorKeys.includes(key)) {
+                delete meta.error[key];
             }
         }
     }

@@ -6,7 +6,7 @@ const { getPlaylistDetailsValidator } = require('../validators/playlists');
 const validator = require("../validators");
 
 router.get(
-	"/user",
+	"/me",
 	isAuthenticated,
 	validator.validate,
 	getUserPlaylists

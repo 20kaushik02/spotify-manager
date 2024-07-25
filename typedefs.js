@@ -8,13 +8,23 @@
  * @typedef {import('winston').Logger} Logger
  * 
  * @typedef {{
+ * type: string,
+ * is_local: boolean,
+ * id: string,
+ * artist?: string,
+ * album?: string,
+ * title?: string,
+ * duration?: number
+ * }} UriObject
+ * 
+ * @typedef {{
  * display_name: string,
- * id: string
+ * uri: string
  * }} User
  * 
  * @typedef {{
  * name: string,
- * id: string,
+ * uri: string,
  * }} SimplifiedPlaylist
  * 
  * @typedef	{{
@@ -39,13 +49,19 @@
  * }} PlaylistTrack
  * 
  * @typedef {{
+ * url: string,
+ * height: number,
+ * width: number
+ * }} ImageObject
+ * 
+ * @typedef {{
  * uri: string,
  * name: string,
  * description: string,
+ * collaborative: boolean,
+ * public: boolean,
  * owner: User,
- * followers: {
- * 	total: number
- * },
+ * images: ImageObject[],
  * tracks: PlaylistTrack[],
  * }} Playlist
  */

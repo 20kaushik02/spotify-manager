@@ -8,11 +8,11 @@ const typedefs = require("../typedefs");
  * @param {typedefs.Next} next 
  */
 const getPlaylistDetailsValidator = async (req, res, next) => {
-	await query("playlist_id")
+	await query("playlist_link")
 		.notEmpty()
-		.withMessage("playlist_id not defined in query")
-		.isAlphanumeric()
-		.withMessage("playlist_id must be alphanumeric (base-62)")
+		.withMessage("playlist_link not defined in query")
+		.isURL()
+		.withMessage("playlist_link must be a valid link")
 		.run(req);
 	next();
 }

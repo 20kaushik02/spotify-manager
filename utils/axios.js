@@ -32,7 +32,12 @@ axiosInstance.interceptors.request.use(request => {
 axiosInstance.interceptors.response.use(
 	(response) => response,
 	(error) => {
-		if (error.response) {
+		if (error.response && error.response.status === 429) {
+			// Rate limiting
+			logger.warn("Spotify API: Too many requests");
+			return error.response;
+		}
+		else if (error.response) {
 			// Server has responded
 			logger.error(
 				"Spotify API: Error", {

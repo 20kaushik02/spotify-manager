@@ -10,7 +10,7 @@ const logger = require("../utils/logger")(module);
 const isAuthenticated = (req, res, next) => {
 	if (req.session.accessToken) {
 		req.authHeader = { 'Authorization': `Bearer ${req.session.accessToken}` };
-		next()
+		next();
 	} else {
 		const delSession = req.session.destroy((err) => {
 			if (err) {

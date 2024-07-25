@@ -2,7 +2,7 @@
  * Returns a single string of the values of all keys in the given JSON object, even nested ones.
  * 
  * @param {*} obj 
- * @returns
+ * @returns {string}
  */
 const getNestedValuesString = (obj) => {
 	let values = [];
