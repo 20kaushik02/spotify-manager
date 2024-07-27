@@ -56,8 +56,16 @@ const logger = (callingModule) => {
         ),
         transports: [
             new transports.Console({ level: 'debug' }),
-            new transports.File({ filename: __dirname + '/../logs/debug.log', level: 'debug' }),
-            new transports.File({ filename: __dirname + '/../logs/error.log', level: 'error' }),
+            new transports.File({
+                filename: __dirname + '/../logs/debug.log',
+                level: 'debug',
+                maxsize: 10485760,
+            }),
+            new transports.File({
+                filename: __dirname + '/../logs/error.log',
+                level: 'error',
+                maxsize: 10485760,
+            }),
         ]
     });
 }

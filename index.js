@@ -9,6 +9,7 @@ const cookieParser = require('cookie-parser');
 const helmet = require("helmet");
 
 const SQLiteStore = require("connect-sqlite3")(session);
+const db = require("./models");
 
 const logger = require("./utils/logger")(module);
 
@@ -51,6 +52,7 @@ app.use(express.static(__dirname + '/static'));
 // Routes
 app.use("/api/auth/", require("./routes/auth"));
 app.use("/api/playlists", require("./routes/playlists"));
+app.use("/api/operations", require("./routes/operations"));
 
 // Fallbacks
 app.use((_req, res) => {
@@ -67,6 +69,7 @@ const server = app.listen(port, () => {
 
 const cleanupFunc = (signal) => {
 	Promise.allSettled([
+		db.sequelize.close(),
 		util.promisify(server.close),
 	]).then(() => {
 		if (signal)

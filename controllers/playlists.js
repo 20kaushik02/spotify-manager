@@ -130,9 +130,11 @@ const getPlaylistDetails = async (req, res) => {
 
 		// previous fields get carried over to the next URL, but most of these fields are not present in the new endpoint
 		// API shouldn't be returning such URLs, the problem's in the API ig...
-		playlist.next = new URL(response.data.tracks.next);
-		playlist.next.searchParams.set("fields", mainFields.join());
-		playlist.next = playlist.next.href;
+		if (response.data.tracks.next) {
+			playlist.next = new URL(response.data.tracks.next);
+			playlist.next.searchParams.set("fields", mainFields.join());
+			playlist.next = playlist.next.href;
+		}
 		playlist.tracks = response.data.tracks.items.map((playlist_item) => {
 			return {
 				is_local: playlist_item.is_local,
