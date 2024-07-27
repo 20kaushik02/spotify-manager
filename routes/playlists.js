@@ -8,7 +8,6 @@ const validator = require("../validators");
 router.get(
 	"/me",
 	isAuthenticated,
-	validator.validate,
 	getUserPlaylists
 );
 

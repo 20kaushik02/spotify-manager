@@ -1,7 +1,7 @@
 const path = require("path");
 
 const { createLogger, transports, config, format } = require('winston');
-const { combine, label, timestamp, printf, errors } = format;
+const { colorize, combine, label, timestamp, printf, errors } = format;
 
 const typedefs = require("../typedefs");
 
@@ -55,10 +55,8 @@ const logger = (callingModule) => {
             logFormat,
         ),
         transports: [
-            process.env.NODE_ENV !== 'production' ?
-                new transports.Console() :
-                new transports.Console(),
-            new transports.File({ filename: __dirname + '/../logs/common.log' }),
+            new transports.Console({ level: 'debug' }),
+            new transports.File({ filename: __dirname + '/../logs/debug.log', level: 'debug' }),
             new transports.File({ filename: __dirname + '/../logs/error.log', level: 'error' }),
         ]
     });

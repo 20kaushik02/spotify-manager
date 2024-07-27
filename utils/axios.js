@@ -21,7 +21,7 @@ const axiosInstance = axios.default.create({
 });
 
 axiosInstance.interceptors.request.use(request => {
-	logger.info("API call", {
+	logger.http("API call", {
 		url: request.url,
 		method: request.method,
 		params: request.params ?? {},
