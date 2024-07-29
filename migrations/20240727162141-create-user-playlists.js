@@ -12,6 +12,9 @@ module.exports = {
       playlistID: {
         type: Sequelize.STRING
       },
+      playlistName: {
+        type: Sequelize.STRING
+      },
       userID: {
         type: Sequelize.STRING
       },

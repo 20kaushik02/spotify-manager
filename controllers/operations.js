@@ -7,7 +7,7 @@ const typedefs = require("../typedefs");
 const userPlaylists = require("../models").userPlaylists;
 
 /**
- * Store user's playlists
+ * Sync user's stored playlists
  * @param {typedefs.Req} req
  * @param {typedefs.Res} res
  */
@@ -33,7 +33,12 @@ const updateUser = async (req, res) => {
 		if (response.status >= 400 && response.status < 500)
 			return res.status(response.status).send(response.data);
 
-		currentPlaylists = response.data.items.map(playlist => parseSpotifyUri(playlist.uri).id);
+		currentPlaylists = response.data.items.map(playlist => {
+			return {
+				playlistID: parseSpotifyUri(playlist.uri).id,
+				playlistName: playlist.name
+			}
+		});
 		nextURL = response.data.next;
 
 		// keep getting batches of 50 till exhausted
@@ -50,7 +55,12 @@ const updateUser = async (req, res) => {
 				return res.status(response.status).send(response.data);
 
 			currentPlaylists.push(
-				...nextResponse.data.items.map(playlist => parseSpotifyUri(playlist.uri).id)
+				...nextResponse.data.items.map(playlist => {
+					return {
+						playlistID: parseSpotifyUri(playlist.uri).id,
+						playlistName: playlist.name
+					}
+				})
 			);
 
 			nextURL = nextResponse.data.next;
@@ -58,7 +68,7 @@ const updateUser = async (req, res) => {
 
 
 		let oldPlaylists = await userPlaylists.findAll({
-			attributes: ["playlistID"],
+			attributes: ["playlistID", "playlistName"],
 			raw: true,
 			where: {
 				userID: userURI.id
@@ -68,12 +78,11 @@ const updateUser = async (req, res) => {
 		let toRemove, toAdd;
 		if (oldPlaylists.length) {
 			// existing user
-			oldPlaylists = oldPlaylists.map(pl => pl.playlistID);
-			const currentSet = new Set(currentPlaylists);
-			const oldSet = new Set(oldPlaylists);
+			const currentSet = new Set(currentPlaylists.map(pl => pl.playlistID));
+			const oldSet = new Set(oldPlaylists.map(pl => pl.playlistID));
 
-			toAdd = currentPlaylists.filter(current => !oldSet.has(current));
-			toRemove = oldPlaylists.filter(old => !currentSet.has(old));
+			toAdd = currentPlaylists.filter(current => !oldSet.has(current.playlistID));
+			toRemove = oldPlaylists.filter(old => !currentSet.has(old.playlistID));
 		} else {
 			// new user
 			toAdd = currentPlaylists;
@@ -82,7 +91,7 @@ const updateUser = async (req, res) => {
 
 		if (toRemove.length) {
 			const cleanedUser = await userPlaylists.destroy({
-				where: { playlistID: toRemove }
+				where: { playlistID: toRemove.map(pl => pl.playlistID) }
 			});
 			if (cleanedUser !== toRemove.length) {
 				logger.error("Could not remove old playlists", { error: new Error("model.destroy failed?") });
@@ -92,7 +101,7 @@ const updateUser = async (req, res) => {
 
 		if (toAdd.length) {
 			const updatedUser = await userPlaylists.bulkCreate(
-				toAdd.map((pl) => { return { playlistID: pl, userID: userURI.id } }),
+				toAdd.map(pl => { return { ...pl, userID: userURI.id } }),
 				{ validate: true }
 			);
 			if (updatedUser.length !== toAdd.length) {
@@ -108,6 +117,31 @@ const updateUser = async (req, res) => {
 	}
 }
 
+/**
+ * Fetch user's stored playlists
+ * @param {typedefs.Req} req
+ * @param {typedefs.Res} res
+ */
+const fetchUser = async (req, res) => {
+	try {
+		const userURI = parseSpotifyUri(req.session.user.uri);
+
+		let currentPlaylists = await userPlaylists.findAll({
+			attributes: ["playlistID", "playlistName"],
+			raw: true,
+			where: {
+				userID: userURI.id
+			},
+		});
+
+		return res.status(200).send(currentPlaylists);
+	} catch (error) {
+		logger.error('fetchUser', { error });
+		return res.sendStatus(500);
+	}
+}
+
 module.exports = {
-	updateUser
+	updateUser,
+	fetchUser
 };

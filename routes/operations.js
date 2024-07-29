@@ -1,12 +1,18 @@
 const router = require('express').Router();
 
-const { updateUser } = require('../controllers/operations');
+const { updateUser, fetchUser } = require('../controllers/operations');
 const { isAuthenticated } = require('../middleware/authCheck');
 
-router.post(
+router.put(
 	"/update",
 	isAuthenticated,
 	updateUser
+);
+
+router.get(
+	"/fetch",
+	isAuthenticated,
+	fetchUser
 );
 
 module.exports = router;
