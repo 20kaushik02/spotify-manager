@@ -68,13 +68,14 @@ const server = app.listen(port, () => {
 });
 
 const cleanupFunc = (signal) => {
+	if (signal)
+		logger.info(`${signal} signal received, shutting down now...`);
+
 	Promise.allSettled([
 		db.sequelize.close(),
 		util.promisify(server.close),
 	]).then(() => {
-		if (signal)
-			logger.info(`Caught ${signal} signal`);
-		logger.info("Cleaned up, exiting...");
+		logger.info("Cleaned up, exiting.");
 		process.exit(0);
 	});
 }

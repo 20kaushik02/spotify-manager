@@ -55,7 +55,6 @@ const parseSpotifyUri = (uri) => {
 
 /**
  * Returns type and ID from a Spotify link
- * @see {@link https://developer.spotify.com/documentation/web-api/concepts/spotify-uris-ids|Spotify URIs and IDs}
  * @param {string} link Spotify URL - can be of an album, track, playlist, user, episode, etc.
  * @returns {typedefs.UriObject}
  * @throws {TypeError} If the input is not a valid Spotify link
@@ -102,7 +101,41 @@ const parseSpotifyLink = (link) => {
 	}
 }
 
+/**
+ * Builds URI string from a URIObject
+ * @param {typedefs.UriObject} uriObj
+ * @returns {string}
+ */
+const buildSpotifyUri = (uriObj) => {
+	if (uriObj.is_local) {
+		const artist = encodeURIComponent(uriObj.artist ?? '');
+		const album = encodeURIComponent(uriObj.album ?? '');
+		const title = encodeURIComponent(uriObj.title ?? '');
+		const duration = uriObj.duration ? uriObj.duration.toString() : '';
+		return `spotify:local:${artist}:${album}:${title}:${duration}`;
+	}
+	return `spotify:${uriObj.type}:${uriObj.id}`;
+}
+
+/**
+ * Builds link from a URIObject
+ * @param {typedefs.UriObject} uriObj
+ * @returns {string}
+ */
+const buildSpotifyLink = (uriObj) => {
+	if (uriObj.is_local) {
+		const artist = encodeURIComponent(uriObj.artist ?? '');
+		const album = encodeURIComponent(uriObj.album ?? '');
+		const title = encodeURIComponent(uriObj.title ?? '');
+		const duration = uriObj.duration ? uriObj.duration.toString() : '';
+		return `https://open.spotify.com/local/${artist}/${album}/${title}/${duration}`;
+	}
+	return `https://open.spotify.com/${uriObj.type}/${uriObj.id}`
+}
+
 module.exports = {
 	parseSpotifyUri,
-	parseSpotifyLink
+	parseSpotifyLink,
+	buildSpotifyUri,
+	buildSpotifyLink
 }

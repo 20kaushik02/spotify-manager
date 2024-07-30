@@ -1,13 +1,18 @@
-const logger = require("../utils/logger")(module);
-const { axiosInstance } = require("../utils/axios");
-const { parseSpotifyUri } = require("../utils/spotifyUriTransformer");
-
 const typedefs = require("../typedefs");
+const logger = require("../utils/logger")(module);
+
+const { axiosInstance } = require("../utils/axios");
+const { parseSpotifyUri, parseSpotifyLink } = require("../utils/spotifyUriTransformer");
+
+
+const { Op } = require("sequelize");
 /** @type {typedefs.Model} */
-const userPlaylists = require("../models").userPlaylists;
+const Playlists = require("../models").playlists;
+/** @type {typedefs.Model} */
+const Links = require("../models").links;
 
 /**
- * Sync user's stored playlists
+ * Sync user's Spotify data
  * @param {typedefs.Req} req
  * @param {typedefs.Res} res
  */
@@ -66,8 +71,7 @@ const updateUser = async (req, res) => {
 			nextURL = nextResponse.data.next;
 		}
 
-
-		let oldPlaylists = await userPlaylists.findAll({
+		let oldPlaylists = await Playlists.findAll({
 			attributes: ["playlistID", "playlistName"],
 			raw: true,
 			where: {
@@ -88,29 +92,45 @@ const updateUser = async (req, res) => {
 			toAdd = currentPlaylists;
 			toRemove = [];
 		}
+		let toRemoveIDs = toRemove.map(pl => pl.playlistID);
+		logger.debug("removeIDs", { toRemoveIDs });
+		let removedLinks = 0;
 
 		if (toRemove.length) {
-			const cleanedUser = await userPlaylists.destroy({
-				where: { playlistID: toRemove.map(pl => pl.playlistID) }
+			removedLinks = await Links.destroy({
+				where: {
+					[Op.and]: [
+						{ userID: userURI.id },
+						{
+							[Op.or]: [
+								{ from: { [Op.in]: toRemoveIDs } },
+								{ to: { [Op.in]: toRemoveIDs } },
+							]
+						}
+					]
+				}
+			})
+			const cleanedUser = await Playlists.destroy({
+				where: { playlistID: toRemoveIDs }
 			});
 			if (cleanedUser !== toRemove.length) {
-				logger.error("Could not remove old playlists", { error: new Error("model.destroy failed?") });
+				logger.error("Could not remove all old playlists", { error: new Error("Playlists.destroy failed?") });
 				return res.sendStatus(500);
 			}
 		}
 
 		if (toAdd.length) {
-			const updatedUser = await userPlaylists.bulkCreate(
+			const updatedUser = await Playlists.bulkCreate(
 				toAdd.map(pl => { return { ...pl, userID: userURI.id } }),
 				{ validate: true }
 			);
 			if (updatedUser.length !== toAdd.length) {
-				logger.error("Could not add new playlists", { error: new Error("model.bulkCreate failed?") });
+				logger.error("Could not add all new playlists", { error: new Error("Playlists.bulkCreate failed?") });
 				return res.sendStatus(500);
 			}
 		}
 
-		return res.sendStatus(200);
+		return res.status(200).send({ removedLinks });
 	} catch (error) {
 		logger.error('updateUser', { error });
 		return res.sendStatus(500);
@@ -126,7 +146,7 @@ const fetchUser = async (req, res) => {
 	try {
 		const userURI = parseSpotifyUri(req.session.user.uri);
 
-		let currentPlaylists = await userPlaylists.findAll({
+		let currentPlaylists = await Playlists.findAll({
 			attributes: ["playlistID", "playlistName"],
 			raw: true,
 			where: {
@@ -141,7 +161,135 @@ const fetchUser = async (req, res) => {
 	}
 }
 
+/**
+ * Create link between playlists!
+ * @param {typedefs.Req} req
+ * @param {typedefs.Res} res
+ */
+const createLink = async (req, res) => {
+	try {
+		const userURI = parseSpotifyUri(req.session.user.uri);
+
+		let fromPl, toPl;
+		try {
+			fromPl = parseSpotifyLink(req.body["from"]);
+			toPl = parseSpotifyLink(req.body["to"]);
+			if (fromPl.type !== "playlist" || toPl.type !== "playlist") {
+				return res.sendStatus(400);
+			}
+		} catch (error) {
+			logger.error("parseSpotifyLink", { error });
+			return res.sendStatus(400);
+		}
+
+		let playlists = await Playlists.findAll({
+			attributes: ["playlistID"],
+			raw: true,
+			where: {
+				userID: userURI.id
+			}
+		});
+		playlists = playlists.map(pl => pl.playlistID);
+
+		// if playlists are unknown
+		if (![fromPl, toPl].every(pl => playlists.includes(pl.id))) {
+			logger.error("unknown playlists, resync");
+			return res.sendStatus(404);
+		}
+
+		// check if exists
+		const existingLink = await Links.findOne({
+			where: {
+				[Op.and]: [
+					{ userID: userURI.id },
+					{ from: fromPl.id },
+					{ to: toPl.id }
+				]
+			}
+		});
+		if (existingLink) {
+			logger.error("link already exists");
+			return res.sendStatus(409);
+		}
+
+		const newLink = await Links.create({
+			userID: userURI.id,
+			from: fromPl.id,
+			to: toPl.id
+		});
+		if (!newLink) {
+			logger.error("Could not create link", { error: new Error("Links.create failed?") });
+			return res.sendStatus(500);
+		}
+
+		return res.sendStatus(201);
+	} catch (error) {
+		logger.error('createLink', { error });
+		return res.sendStatus(500);
+	}
+}
+
+
+/**
+ * Remove link between playlists
+ * @param {typedefs.Req} req
+ * @param {typedefs.Res} res
+ */
+const removeLink = async (req, res) => {
+	try {
+		const userURI = parseSpotifyUri(req.session.user.uri);
+
+		let fromPl, toPl;
+		try {
+			fromPl = parseSpotifyLink(req.body["from"]);
+			toPl = parseSpotifyLink(req.body["to"]);
+			if (fromPl.type !== "playlist" || toPl.type !== "playlist") {
+				return res.sendStatus(400);
+			}
+		} catch (error) {
+			logger.error("parseSpotifyLink", { error });
+			return res.sendStatus(400);
+		}
+
+		// check if exists
+		const existingLink = await Links.findOne({
+			where: {
+				[Op.and]: [
+					{ userID: userURI.id },
+					{ from: fromPl.id },
+					{ to: toPl.id }
+				]
+			}
+		});
+		if (!existingLink) {
+			logger.error("link does not exist");
+			return res.sendStatus(409);
+		}
+
+		const removedLink = await Links.destroy({
+			where: {
+				[Op.and]: [
+					{ userID: userURI.id },
+					{ from: fromPl.id },
+					{ to: toPl.id }
+				]
+			}
+		});
+		if (!removedLink) {
+			logger.error("Could not remove link", { error: new Error("Links.destroy failed?") });
+			return res.sendStatus(500);
+		}
+
+		return res.sendStatus(200);
+	} catch (error) {
+		logger.error('removeLink', { error });
+		return res.sendStatus(500);
+	}
+}
+
 module.exports = {
 	updateUser,
-	fetchUser
+	fetchUser,
+	createLink,
+	removeLink
 };
