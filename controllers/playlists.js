@@ -98,11 +98,11 @@ const getPlaylistDetails = async (req, res) => {
 		try {
 			uri = parseSpotifyLink(req.query.playlist_link)
 			if (uri.type !== "playlist") {
-				return res.status(400).send("Not a playlist link");
+				return res.status(400).send({ message: "Invalid Spotify playlist link" });
 			}
 		} catch (error) {
 			logger.error("parseSpotifyLink", { error });
-			return res.sendStatus(400);
+			return res.status(400).send({ message: "Invalid Spotify playlist link" });
 		}
 
 		const response = await axiosInstance.get(

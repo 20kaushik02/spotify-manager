@@ -2,6 +2,7 @@ const typedefs = require("../typedefs");
 const logger = require("../utils/logger")(module);
 
 const { axiosInstance } = require("../utils/axios");
+const myGraph = require("../utils/graph");
 const { parseSpotifyUri, parseSpotifyLink } = require("../utils/spotifyUriTransformer");
 
 
@@ -93,7 +94,6 @@ const updateUser = async (req, res) => {
 			toRemove = [];
 		}
 		let toRemoveIDs = toRemove.map(pl => pl.playlistID);
-		logger.debug("removeIDs", { toRemoveIDs });
 		let removedLinks = 0;
 
 		if (toRemove.length) {
@@ -138,7 +138,7 @@ const updateUser = async (req, res) => {
 }
 
 /**
- * Fetch user's stored playlists
+ * Fetch user's stored playlists and links
  * @param {typedefs.Req} req
  * @param {typedefs.Res} res
  */
@@ -146,7 +146,7 @@ const fetchUser = async (req, res) => {
 	try {
 		const userURI = parseSpotifyUri(req.session.user.uri);
 
-		let currentPlaylists = await Playlists.findAll({
+		const currentPlaylists = await Playlists.findAll({
 			attributes: ["playlistID", "playlistName"],
 			raw: true,
 			where: {
@@ -154,7 +154,18 @@ const fetchUser = async (req, res) => {
 			},
 		});
 
-		return res.status(200).send(currentPlaylists);
+		const currentLinks = await Links.findAll({
+			attributes: ["from", "to"],
+			raw: true,
+			where: {
+				userID: userURI.id
+			},
+		});
+
+		return res.status(200).send({
+			playlists: currentPlaylists,
+			links: currentLinks
+		});
 	} catch (error) {
 		logger.error('fetchUser', { error });
 		return res.sendStatus(500);
@@ -175,19 +186,17 @@ const createLink = async (req, res) => {
 			fromPl = parseSpotifyLink(req.body["from"]);
 			toPl = parseSpotifyLink(req.body["to"]);
 			if (fromPl.type !== "playlist" || toPl.type !== "playlist") {
-				return res.sendStatus(400);
+				return res.status(400).send({ message: "Invalid Spotify playlist link" });
 			}
 		} catch (error) {
 			logger.error("parseSpotifyLink", { error });
-			return res.sendStatus(400);
+			return res.status(400).send({ message: "Invalid Spotify playlist link" });
 		}
 
 		let playlists = await Playlists.findAll({
 			attributes: ["playlistID"],
 			raw: true,
-			where: {
-				userID: userURI.id
-			}
+			where: { userID: userURI.id }
 		});
 		playlists = playlists.map(pl => pl.playlistID);
 
@@ -210,6 +219,19 @@ const createLink = async (req, res) => {
 		if (existingLink) {
 			logger.error("link already exists");
 			return res.sendStatus(409);
+		}
+
+		const allLinks = await Links.findAll({
+			attributes: ["from", "to"],
+			raw: true,
+			where: { userID: userURI.id }
+		});
+
+		const newGraph = new myGraph(playlists, [...allLinks, { from: fromPl.id, to: toPl.id }]);
+
+		if (newGraph.detectCycle()) {
+			logger.error("potential cycle detected");
+			return res.status(400).send({ message: "Proposed link cannot cause a cycle in the graph" });
 		}
 
 		const newLink = await Links.create({
@@ -244,11 +266,11 @@ const removeLink = async (req, res) => {
 			fromPl = parseSpotifyLink(req.body["from"]);
 			toPl = parseSpotifyLink(req.body["to"]);
 			if (fromPl.type !== "playlist" || toPl.type !== "playlist") {
-				return res.sendStatus(400);
+				return res.status(400).send({ message: "Invalid Spotify playlist link" });
 			}
 		} catch (error) {
 			logger.error("parseSpotifyLink", { error });
-			return res.sendStatus(400);
+			return res.status(400).send({ message: "Invalid Spotify playlist link" });
 		}
 
 		// check if exists

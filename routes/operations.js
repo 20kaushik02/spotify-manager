@@ -23,7 +23,7 @@ router.post(
 	createLinkValidator,
 	validate,
 	createLink
-)
+);
 
 router.delete(
 	"/link",
@@ -31,5 +31,6 @@ router.delete(
 	removeLinkValidator,
 	validate,
 	removeLink
-)
+);
+
 module.exports = router;
