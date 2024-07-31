@@ -6,7 +6,21 @@ const typedefs = require("../typedefs");
  * Directed graph, may or may not be connected.
  * 
  * NOTE: Assumes that nodes and edges are valid.
- */
+ * 
+ * Example:
+ * ```javascript
+ * let nodes = ['a', 'b', 'c', 'd', 'e'];
+ * let edges = [
+ *		{ from: 'a', to: 'b' },
+ *		{ from: 'b', to: 'c' },
+ *		{ from: 'c', to: 'd' },
+ *		{ from: 'd', to: 'a' },
+ *		{ from: 'e', to: 'a' }
+ *	];
+ * let g = new myGraph(nodes, edges);
+ * console.log(g.detectCycle()); // true
+ * ```
+*/
 class myGraph {
 	/**
 	 * @param {string[]} nodes Graph nodes IDs
@@ -21,7 +35,15 @@ class myGraph {
 	 * @param {type} node
 	 * @returns {string[]}
 	 */
-	getNeighbors(node) {
+	getDirectHeads(node) {
+		return this.edges.filter(edge => edge.to == node).map(edge => edge.from);
+	}
+
+	/**
+	 * @param {type} node
+	 * @returns {string[]}
+	 */
+	getDirectTails(node) {
 		return this.edges.filter(edge => edge.from == node).map(edge => edge.to);
 	}
 
@@ -56,10 +78,10 @@ class myGraph {
 			let node = zeroInDegreeQueue.shift();
 			topologicalOrder.push(node);
 
-			for (let neighbor of this.getNeighbors(node)) {
-				inDegree[neighbor]--;
-				if (inDegree[neighbor] === 0) {
-					zeroInDegreeQueue.push(neighbor);
+			for (let tail of this.getDirectTails(node)) {
+				inDegree[tail]--;
+				if (inDegree[tail] === 0) {
+					zeroInDegreeQueue.push(tail);
 				}
 			}
 		}

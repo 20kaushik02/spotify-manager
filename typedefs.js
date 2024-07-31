@@ -19,7 +19,7 @@
  * album?: string,
  * title?: string,
  * duration?: number
- * }} UriObject
+ * }} URIObject
  * 
  * @typedef {{
  * display_name: string,

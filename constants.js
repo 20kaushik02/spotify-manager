@@ -4,22 +4,16 @@ const baseAPIURL = 'https://api.spotify.com/v1';
 const stateKey = 'spotify_auth_state';
 
 const scopes = {
-	ImageUpload: 'ugc-image-upload',
-	ControlPlayback: 'user-modify-playback-state',
-	ViewPlaybackState: 'user-read-playback-state',
-	ViewCurrentlyPlaying: 'user-read-currently-playing',
-	ModifyFollow: 'user-follow-modify',
-	ViewFollow: 'user-follow-read',
-	ViewRecentlyPlayed: 'user-read-recently-played',
-	ViewPlaybackPosition: 'user-read-playback-position',
-	ViewTop: 'user-top-read',
-	ViewPrivatePlaylists: 'playlist-read-private',
-	IncludeCollaborative: 'playlist-read-collaborative',
+	// ImageUpload: 'ugc-image-upload',
+	AccessPrivatePlaylists: 'playlist-read-private',
+	AccessCollaborativePlaylists: 'playlist-read-collaborative',
 	ModifyPublicPlaylists: 'playlist-modify-public',
 	ModifyPrivatePlaylists: 'playlist-modify-private',
-	ControlRemotePlayback: 'app-remote-control',
+	// ModifyFollow: 'user-follow-modify',
+	AccessFollow: 'user-follow-read',
 	ModifyLibrary: 'user-library-modify',
-	ViewLibrary: 'user-library-read'
+	AccessLibrary: 'user-library-read',
+	AccessUser: 'user-read-private',
 };
 
 module.exports = {

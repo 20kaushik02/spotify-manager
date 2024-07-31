@@ -2,7 +2,7 @@ const logger = require("../utils/logger")(module);
 
 const typedefs = require("../typedefs");
 const { axiosInstance } = require('../utils/axios');
-const { parseSpotifyUri, parseSpotifyLink } = require("../utils/spotifyUriTransformer");
+const { parseSpotifyURI, parseSpotifyLink } = require("../utils/spotifyURITransformer");
 
 /**
  * Retrieve list of all of user's playlists
@@ -15,7 +15,7 @@ const getUserPlaylists = async (req, res) => {
 
 		// get first 50
 		const response = await axiosInstance.get(
-			`/users/${parseSpotifyUri(req.session.user.uri).id}/playlists`,
+			`/users/${parseSpotifyURI(req.session.user.uri).id}/playlists`,
 			{
 				params: {
 					offset: 0,
@@ -89,7 +89,7 @@ const getPlaylistDetails = async (req, res) => {
 	try {
 		/** @type {typedefs.Playlist} */
 		let playlist = {};
-		/** @type {typedefs.UriObject} */
+		/** @type {typedefs.URIObject} */
 		let uri;
 		let initialFields = ["collaborative", "description", "images", "name", "owner(uri,display_name)", "public",
 			"snapshot_id", "tracks(next,total,items(is_local,track(name,uri)))"];

@@ -7,10 +7,10 @@ const base62Pattern = /^[A-Za-z0-9]+$/;
  * Returns type and ID from a Spotify URI
  * @see {@link https://developer.spotify.com/documentation/web-api/concepts/spotify-uris-ids|Spotify URIs and IDs}
  * @param {string} uri Spotify URI - can be of an album, track, playlist, user, episode, etc.
- * @returns {typedefs.UriObject}
+ * @returns {typedefs.URIObject}
  * @throws {TypeError} If the input is not a valid Spotify URI
  */
-const parseSpotifyUri = (uri) => {
+const parseSpotifyURI = (uri) => {
 	const parts = uri.split(":");
 
 	if (parts[0] !== "spotify") {
@@ -56,7 +56,7 @@ const parseSpotifyUri = (uri) => {
 /**
  * Returns type and ID from a Spotify link
  * @param {string} link Spotify URL - can be of an album, track, playlist, user, episode, etc.
- * @returns {typedefs.UriObject}
+ * @returns {typedefs.URIObject}
  * @throws {TypeError} If the input is not a valid Spotify link
  */
 const parseSpotifyLink = (link) => {
@@ -103,10 +103,10 @@ const parseSpotifyLink = (link) => {
 
 /**
  * Builds URI string from a URIObject
- * @param {typedefs.UriObject} uriObj
+ * @param {typedefs.URIObject} uriObj
  * @returns {string}
  */
-const buildSpotifyUri = (uriObj) => {
+const buildSpotifyURI = (uriObj) => {
 	if (uriObj.is_local) {
 		const artist = encodeURIComponent(uriObj.artist ?? '');
 		const album = encodeURIComponent(uriObj.album ?? '');
@@ -119,7 +119,7 @@ const buildSpotifyUri = (uriObj) => {
 
 /**
  * Builds link from a URIObject
- * @param {typedefs.UriObject} uriObj
+ * @param {typedefs.URIObject} uriObj
  * @returns {string}
  */
 const buildSpotifyLink = (uriObj) => {
@@ -134,8 +134,8 @@ const buildSpotifyLink = (uriObj) => {
 }
 
 module.exports = {
-	parseSpotifyUri,
+	parseSpotifyURI,
 	parseSpotifyLink,
-	buildSpotifyUri,
+	buildSpotifyURI,
 	buildSpotifyLink
 }

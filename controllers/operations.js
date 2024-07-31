@@ -73,7 +73,7 @@ const updateUser = async (req, res) => {
 		}
 
 		let oldPlaylists = await Playlists.findAll({
-			attributes: ["playlistID", "playlistName"],
+			attributes: ["playlistID"],
 			raw: true,
 			where: {
 				userID: userURI.id
@@ -97,6 +97,7 @@ const updateUser = async (req, res) => {
 		let removedLinks = 0;
 
 		if (toRemove.length) {
+			// clean up any links dependent on the playlists
 			removedLinks = await Links.destroy({
 				where: {
 					[Op.and]: [
@@ -110,6 +111,8 @@ const updateUser = async (req, res) => {
 					]
 				}
 			})
+
+			// only then remove
 			const cleanedUser = await Playlists.destroy({
 				where: { playlistID: toRemoveIDs }
 			});
