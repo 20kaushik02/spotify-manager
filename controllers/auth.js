@@ -86,7 +86,7 @@ const callback = async (req, res) => {
 			/** @type {typedefs.User} */
 			req.session.user = {
 				username: userResponse.data.display_name,
-				uri: userResponse.data.uri,
+				id: userResponse.data.id,
 			};
 
 			return res.sendStatus(200);
@@ -116,7 +116,6 @@ const refresh = async (req, res) => {
 		if (response.status === 200) {
 			req.session.accessToken = response.data.access_token;
 			req.session.refreshToken = response.data.refresh_token ?? req.session.refreshToken; // refresh token rotation
-			req.session.cookie.maxAge = 7 * 24 * 60 * 60 * 1000 // 1 week
 
 			logger.info(`Access token refreshed${(response.data.refresh_token !== null) ? ' and refresh token updated' : ''}.`);
 			return res.sendStatus(200);

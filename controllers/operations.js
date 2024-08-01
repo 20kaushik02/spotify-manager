@@ -3,8 +3,7 @@ const logger = require("../utils/logger")(module);
 
 const { axiosInstance } = require("../utils/axios");
 const myGraph = require("../utils/graph");
-const { parseSpotifyUri, parseSpotifyLink } = require("../utils/spotifyUriTransformer");
-
+const { parseSpotifyLink } = require("../utils/spotifyURITransformer");
 
 const { Op } = require("sequelize");
 /** @type {typedefs.Model} */
@@ -20,28 +19,28 @@ const Links = require("../models").links;
 const updateUser = async (req, res) => {
 	try {
 		let currentPlaylists = [];
-		const userURI = parseSpotifyUri(req.session.user.uri);
+		const uID = req.session.user.id;
 
 		// get first 50
 		const response = await axiosInstance.get(
-			`/users/${userURI.id}/playlists`,
+			`/users/${uID}/playlists`,
 			{
 				params: {
 					offset: 0,
 					limit: 50,
 				},
-				headers: {
-					...req.authHeader
-				}
+				headers: req.sessHeaders
 			}
 		);
 
 		if (response.status >= 400 && response.status < 500)
 			return res.status(response.status).send(response.data);
+		else if (response.status >= 500)
+			return res.sendStatus(response.status);
 
 		currentPlaylists = response.data.items.map(playlist => {
 			return {
-				playlistID: parseSpotifyUri(playlist.uri).id,
+				playlistID: playlist.id,
 				playlistName: playlist.name
 			}
 		});
@@ -51,19 +50,17 @@ const updateUser = async (req, res) => {
 		while (nextURL) {
 			const nextResponse = await axiosInstance.get(
 				nextURL, // absolute URL from previous response which has params
-				{
-					headers: {
-						...req.authHeader
-					}
-				}
+				{ headers: req.sessHeaders }
 			);
 			if (response.status >= 400 && response.status < 500)
 				return res.status(response.status).send(response.data);
+			else if (response.status >= 500)
+				return res.sendStatus(response.status);
 
 			currentPlaylists.push(
 				...nextResponse.data.items.map(playlist => {
 					return {
-						playlistID: parseSpotifyUri(playlist.uri).id,
+						playlistID: playlist.id,
 						playlistName: playlist.name
 					}
 				})
@@ -76,7 +73,7 @@ const updateUser = async (req, res) => {
 			attributes: ["playlistID"],
 			raw: true,
 			where: {
-				userID: userURI.id
+				userID: uID
 			},
 		});
 
@@ -86,6 +83,7 @@ const updateUser = async (req, res) => {
 			const currentSet = new Set(currentPlaylists.map(pl => pl.playlistID));
 			const oldSet = new Set(oldPlaylists.map(pl => pl.playlistID));
 
+			// TODO: update playlist name
 			toAdd = currentPlaylists.filter(current => !oldSet.has(current.playlistID));
 			toRemove = oldPlaylists.filter(old => !currentSet.has(old.playlistID));
 		} else {
@@ -101,7 +99,7 @@ const updateUser = async (req, res) => {
 			removedLinks = await Links.destroy({
 				where: {
 					[Op.and]: [
-						{ userID: userURI.id },
+						{ userID: uID },
 						{
 							[Op.or]: [
 								{ from: { [Op.in]: toRemoveIDs } },
@@ -124,7 +122,7 @@ const updateUser = async (req, res) => {
 
 		if (toAdd.length) {
 			const updatedUser = await Playlists.bulkCreate(
-				toAdd.map(pl => { return { ...pl, userID: userURI.id } }),
+				toAdd.map(pl => { return { ...pl, userID: uID } }),
 				{ validate: true }
 			);
 			if (updatedUser.length !== toAdd.length) {
@@ -147,13 +145,13 @@ const updateUser = async (req, res) => {
  */
 const fetchUser = async (req, res) => {
 	try {
-		const userURI = parseSpotifyUri(req.session.user.uri);
+		const uID = req.session.user.id;
 
 		const currentPlaylists = await Playlists.findAll({
 			attributes: ["playlistID", "playlistName"],
 			raw: true,
 			where: {
-				userID: userURI.id
+				userID: uID
 			},
 		});
 
@@ -161,7 +159,7 @@ const fetchUser = async (req, res) => {
 			attributes: ["from", "to"],
 			raw: true,
 			where: {
-				userID: userURI.id
+				userID: uID
 			},
 		});
 
@@ -182,14 +180,14 @@ const fetchUser = async (req, res) => {
  */
 const createLink = async (req, res) => {
 	try {
-		const userURI = parseSpotifyUri(req.session.user.uri);
+		const uID = req.session.user.id;
 
 		let fromPl, toPl;
 		try {
 			fromPl = parseSpotifyLink(req.body["from"]);
 			toPl = parseSpotifyLink(req.body["to"]);
 			if (fromPl.type !== "playlist" || toPl.type !== "playlist") {
-				return res.status(400).send({ message: "Invalid Spotify playlist link" });
+				return res.status(400).send({ message: "Link is not a playlist" });
 			}
 		} catch (error) {
 			logger.error("parseSpotifyLink", { error });
@@ -199,7 +197,7 @@ const createLink = async (req, res) => {
 		let playlists = await Playlists.findAll({
 			attributes: ["playlistID"],
 			raw: true,
-			where: { userID: userURI.id }
+			where: { userID: uID }
 		});
 		playlists = playlists.map(pl => pl.playlistID);
 
@@ -213,7 +211,7 @@ const createLink = async (req, res) => {
 		const existingLink = await Links.findOne({
 			where: {
 				[Op.and]: [
-					{ userID: userURI.id },
+					{ userID: uID },
 					{ from: fromPl.id },
 					{ to: toPl.id }
 				]
@@ -227,7 +225,7 @@ const createLink = async (req, res) => {
 		const allLinks = await Links.findAll({
 			attributes: ["from", "to"],
 			raw: true,
-			where: { userID: userURI.id }
+			where: { userID: uID }
 		});
 
 		const newGraph = new myGraph(playlists, [...allLinks, { from: fromPl.id, to: toPl.id }]);
@@ -238,7 +236,7 @@ const createLink = async (req, res) => {
 		}
 
 		const newLink = await Links.create({
-			userID: userURI.id,
+			userID: uID,
 			from: fromPl.id,
 			to: toPl.id
 		});
@@ -262,14 +260,14 @@ const createLink = async (req, res) => {
  */
 const removeLink = async (req, res) => {
 	try {
-		const userURI = parseSpotifyUri(req.session.user.uri);
+		const uID = req.session.user.id;
 
 		let fromPl, toPl;
 		try {
 			fromPl = parseSpotifyLink(req.body["from"]);
 			toPl = parseSpotifyLink(req.body["to"]);
 			if (fromPl.type !== "playlist" || toPl.type !== "playlist") {
-				return res.status(400).send({ message: "Invalid Spotify playlist link" });
+				return res.status(400).send({ message: "Link is not a playlist" });
 			}
 		} catch (error) {
 			logger.error("parseSpotifyLink", { error });
@@ -280,7 +278,7 @@ const removeLink = async (req, res) => {
 		const existingLink = await Links.findOne({
 			where: {
 				[Op.and]: [
-					{ userID: userURI.id },
+					{ userID: uID },
 					{ from: fromPl.id },
 					{ to: toPl.id }
 				]
@@ -294,7 +292,7 @@ const removeLink = async (req, res) => {
 		const removedLink = await Links.destroy({
 			where: {
 				[Op.and]: [
-					{ userID: userURI.id },
+					{ userID: uID },
 					{ from: fromPl.id },
 					{ to: toPl.id }
 				]
@@ -312,9 +310,220 @@ const removeLink = async (req, res) => {
 	}
 }
 
+/**
+ * Add tracks to the link-head playlist,
+ * that are present in the link-tail playlist but not in the link-head playlist,
+ * in the order that they are present in the link-tail playlist.
+ * 
+ * eg.
+ * 
+ * pl_a has tracks: a, b, c
+ * 
+ * pl_b has tracks: e, b, d
+ * 
+ * link from pl_a to pl_b exists
+ * 
+ * after populateMissingInLink, pl_a will have tracks: a, b, c, e, d
+ * 
+ * @param {typedefs.Req} req
+ * @param {typedefs.Res} res
+ */
+const populateMissingInLink = async (req, res) => {
+	try {
+		const uID = req.session.user.id;
+
+		let fromPl, toPl;
+		try {
+			fromPl = parseSpotifyLink(req.body["from"]);
+			toPl = parseSpotifyLink(req.body["to"]);
+			if (fromPl.type !== "playlist" || toPl.type !== "playlist") {
+				return res.status(400).send({ message: "Link is not a playlist" });
+			}
+		} catch (error) {
+			logger.error("parseSpotifyLink", { error });
+			return res.status(400).send({ message: "Invalid Spotify playlist link" });
+		}
+
+		// check if exists
+		const existingLink = await Links.findOne({
+			where: {
+				[Op.and]: [
+					{ userID: uID },
+					{ from: fromPl.id },
+					{ to: toPl.id }
+				]
+			}
+		});
+		if (!existingLink) {
+			logger.error("link does not exist");
+			return res.sendStatus(409);
+		}
+
+		let checkFields = ["collaborative", "owner(id)"];
+		const checkFromData = await axiosInstance.get(
+			`/playlists/${fromPl.id}/`,
+			{
+				params: {
+					fields: checkFields.join()
+				},
+				headers: req.sessHeaders
+			}
+		);
+		if (checkFromData.status >= 400 && checkFromData.status < 500)
+			return res.status(checkFromData.status).send(checkFromData.data);
+		else if (checkFromData.status >= 500)
+			return res.sendStatus(checkFromData.status);
+
+		// editable = collaborative || user is owner
+		if (checkFromData.data.collaborative !== true &&
+			checkFromData.data.owner.id !== uID) {
+			logger.error("user cannot edit target playlist");
+			return res.status(403).send({
+				message: "You cannot edit this playlist, you must be owner/ playlist must be collaborative"
+			});
+		}
+
+		let initialFields = ["tracks(next,items(is_local,track(uri)))"];
+		let mainFields = ["next", "items(is_local,track(uri))"];
+		const fromData = await axiosInstance.get(
+			`/playlists/${fromPl.id}/`,
+			{
+				params: {
+					fields: initialFields.join()
+				},
+				headers: req.sessHeaders
+			}
+		);
+		if (fromData.status >= 400 && fromData.status < 500)
+			return res.status(fromData.status).send(fromData.data);
+		else if (fromData.status >= 500)
+			return res.sendStatus(fromData.status);
+
+		let fromPlaylist = {};
+		// varying fields again smh
+		if (fromData.data.tracks.next) {
+			fromPlaylist.next = new URL(fromData.data.tracks.next);
+			fromPlaylist.next.searchParams.set("fields", mainFields.join());
+			fromPlaylist.next = fromPlaylist.next.href;
+		}
+		fromPlaylist.tracks = fromData.data.tracks.items.map((playlist_item) => {
+			return {
+				is_local: playlist_item.is_local,
+				uri: playlist_item.track.uri
+			}
+		});
+
+
+		// keep getting batches of 50 till exhausted
+		while (fromPlaylist.next) {
+			const nextResponse = await axiosInstance.get(
+				fromPlaylist.next, // absolute URL from previous response which has params
+				{ headers: req.sessHeaders }
+			);
+
+			if (nextResponse.status >= 400 && nextResponse.status < 500)
+				return res.status(nextResponse.status).send(nextResponse.data);
+			else if (nextResponse.status >= 500)
+				return res.sendStatus(nextResponse.status);
+
+			fromPlaylist.tracks.push(
+				...nextResponse.data.items.map((playlist_item) => {
+					return {
+						is_local: playlist_item.is_local,
+						uri: playlist_item.track.uri
+					}
+				})
+			);
+
+			fromPlaylist.next = nextResponse.data.next;
+		}
+
+		delete fromPlaylist.next;
+		const toData = await axiosInstance.get(
+			`/playlists/${toPl.id}/`,
+			{
+				params: {
+					fields: initialFields.join()
+				},
+				headers: req.sessHeaders
+			}
+		);
+		if (toData.status >= 400 && toData.status < 500)
+			return res.status(toData.status).send(toData.data);
+		else if (toData.status >= 500)
+			return res.sendStatus(toData.status);
+
+		let toPlaylist = {};
+		// varying fields again smh
+		if (toData.data.tracks.next) {
+			toPlaylist.next = new URL(toData.data.tracks.next);
+			toPlaylist.next.searchParams.set("fields", mainFields.join());
+			toPlaylist.next = toPlaylist.next.href;
+		}
+		toPlaylist.tracks = toData.data.tracks.items.map((playlist_item) => {
+			return {
+				is_local: playlist_item.is_local,
+				uri: playlist_item.track.uri
+			}
+		});
+
+		// keep getting batches of 50 till exhausted
+		while (toPlaylist.next) {
+			const nextResponse = await axiosInstance.get(
+				toPlaylist.next, // absolute URL from previous response which has params
+				{ headers: req.sessHeaders }
+			);
+
+			if (nextResponse.status >= 400 && nextResponse.status < 500)
+				return res.status(nextResponse.status).send(nextResponse.data);
+			else if (nextResponse.status >= 500)
+				return res.sendStatus(nextResponse.status);
+
+			toPlaylist.tracks.push(
+				...nextResponse.data.items.map((playlist_item) => {
+					return {
+						is_local: playlist_item.is_local,
+						uri: playlist_item.track.uri
+					}
+				})
+			);
+
+			toPlaylist.next = nextResponse.data.next;
+		}
+
+		delete toPlaylist.next;
+
+		let fromURIs = fromPlaylist.tracks.map(track => track.uri);
+		let toURIs = toPlaylist.tracks.
+			filter(track => !track.is_local). // API doesn't support adding local files to playlists yet
+			map(track => track.uri).
+			filter(track => !fromURIs.includes(track)); // only ones missing from the 'from' playlist
+
+		// add in batches of 100
+		while (toURIs.length) {
+			const nextBatch = toURIs.splice(0, 100);
+			const addResponse = await axiosInstance.post(
+				`/playlists/${fromPl.id}/tracks`,
+				{ uris: nextBatch },
+				{ headers: req.sessHeaders }
+			);
+			if (addResponse.status >= 400 && addResponse.status < 500)
+				return res.status(addResponse.status).send(addResponse.data);
+			else if (addResponse.status >= 500)
+				return res.sendStatus(addResponse.status);
+		}
+
+		return res.sendStatus(200);
+	} catch (error) {
+		logger.error('populateMissingInLink', { error });
+		return res.sendStatus(500);
+	}
+}
+
 module.exports = {
 	updateUser,
 	fetchUser,
 	createLink,
-	removeLink
+	removeLink,
+	populateMissingInLink,
 };

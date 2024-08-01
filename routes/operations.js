@@ -1,25 +1,21 @@
 const router = require('express').Router();
 
-const { updateUser, fetchUser, createLink, removeLink } = require('../controllers/operations');
-const { isAuthenticated } = require('../middleware/authCheck');
+const { updateUser, fetchUser, createLink, removeLink, populateMissingInLink } = require('../controllers/operations');
 const { validate } = require('../validators');
-const { createLinkValidator, removeLinkValidator } = require('../validators/operations');
+const { createLinkValidator, removeLinkValidator, populateMissingInLinkValidator } = require('../validators/operations');
 
 router.put(
 	"/update",
-	isAuthenticated,
 	updateUser
 );
 
 router.get(
 	"/fetch",
-	isAuthenticated,
 	fetchUser
 );
 
 router.post(
 	"/link",
-	isAuthenticated,
 	createLinkValidator,
 	validate,
 	createLink
@@ -27,10 +23,16 @@ router.post(
 
 router.delete(
 	"/link",
-	isAuthenticated,
 	removeLinkValidator,
 	validate,
 	removeLink
+);
+
+router.put(
+	"/populate/link",
+	populateMissingInLinkValidator,
+	validate,
+	populateMissingInLink
 );
 
 module.exports = router;

@@ -1,3 +1,4 @@
+const { sessionName } = require("../constants");
 const typedefs = require("../typedefs");
 const logger = require("../utils/logger")(module);
 
@@ -9,7 +10,10 @@ const logger = require("../utils/logger")(module);
  */
 const isAuthenticated = (req, res, next) => {
 	if (req.session.accessToken) {
-		req.authHeader = { 'Authorization': `Bearer ${req.session.accessToken}` };
+		req.sessHeaders = {
+			'Authorization': `Bearer ${req.session.accessToken}`,
+			// 'X-RateLimit-SessID': `${req.sessionID}_${req.session.user.username}`
+		};
 		next();
 	} else {
 		const delSession = req.session.destroy((err) => {
@@ -18,7 +22,7 @@ const isAuthenticated = (req, res, next) => {
 				return res.sendStatus(500);
 			} else {
 				logger.info("Session invalid, destroyed.", { sessionID: delSession.id });
-				res.clearCookie("connect.sid");
+				res.clearCookie(sessionName);
 				return res.sendStatus(401);
 			}
 		});

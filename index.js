@@ -10,6 +10,8 @@ const helmet = require("helmet");
 
 const SQLiteStore = require("connect-sqlite3")(session);
 const db = require("./models");
+const { sessionName } = require('./constants');
+const { isAuthenticated } = require('./middleware/authCheck');
 
 const logger = require("./utils/logger")(module);
 
@@ -26,6 +28,7 @@ const sqliteStore = new SQLiteStore({
 
 // Configure session middleware
 app.use(session({
+	name: sessionName,
 	store: sqliteStore,
 	secret: process.env.SESSION_SECRET,
 	resave: false,
@@ -51,8 +54,8 @@ app.use(express.static(__dirname + '/static'));
 
 // Routes
 app.use("/api/auth/", require("./routes/auth"));
-app.use("/api/playlists", require("./routes/playlists"));
-app.use("/api/operations", require("./routes/operations"));
+app.use("/api/playlists", isAuthenticated, require("./routes/playlists"));
+app.use("/api/operations", isAuthenticated, require("./routes/operations"));
 
 // Fallbacks
 app.use((_req, res) => {

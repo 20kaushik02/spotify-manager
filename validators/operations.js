@@ -25,5 +25,6 @@ const createLinkValidator = async (req, res, next) => {
 
 module.exports = {
 	createLinkValidator,
-	removeLinkValidator: createLinkValidator
+	removeLinkValidator: createLinkValidator,
+	populateMissingInLinkValidator: createLinkValidator
 }

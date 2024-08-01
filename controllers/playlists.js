@@ -2,7 +2,7 @@ const logger = require("../utils/logger")(module);
 
 const typedefs = require("../typedefs");
 const { axiosInstance } = require('../utils/axios');
-const { parseSpotifyURI, parseSpotifyLink } = require("../utils/spotifyURITransformer");
+const { parseSpotifyLink } = require("../utils/spotifyURITransformer");
 
 /**
  * Retrieve list of all of user's playlists
@@ -15,20 +15,20 @@ const getUserPlaylists = async (req, res) => {
 
 		// get first 50
 		const response = await axiosInstance.get(
-			`/users/${parseSpotifyURI(req.session.user.uri).id}/playlists`,
+			`/users/${req.session.user.id}/playlists`,
 			{
 				params: {
 					offset: 0,
 					limit: 50,
 				},
-				headers: {
-					...req.authHeader
-				}
+				headers: req.sessHeaders
 			}
 		);
 
 		if (response.status >= 400 && response.status < 500)
 			return res.status(response.status).send(response.data);
+		else if (response.status >= 500)
+			return res.sendStatus(response.status);
 
 		userPlaylists.total = response.data.total;
 
@@ -48,14 +48,12 @@ const getUserPlaylists = async (req, res) => {
 		while (userPlaylists.next) {
 			const nextResponse = await axiosInstance.get(
 				userPlaylists.next, // absolute URL from previous response which has params
-				{
-					headers: {
-						...req.authHeader
-					}
-				}
+				{ headers: req.sessHeaders }
 			);
 			if (response.status >= 400 && response.status < 500)
 				return res.status(response.status).send(response.data);
+			else if (response.status >= 500)
+				return res.sendStatus(response.status);
 
 			userPlaylists.items.push(
 				...nextResponse.data.items.map((playlist) => {
@@ -98,7 +96,7 @@ const getPlaylistDetails = async (req, res) => {
 		try {
 			uri = parseSpotifyLink(req.query.playlist_link)
 			if (uri.type !== "playlist") {
-				return res.status(400).send({ message: "Invalid Spotify playlist link" });
+				return res.status(400).send({ message: "Link is not a playlist" });
 			}
 		} catch (error) {
 			logger.error("parseSpotifyLink", { error });
@@ -111,11 +109,13 @@ const getPlaylistDetails = async (req, res) => {
 				params: {
 					fields: initialFields.join()
 				},
-				headers: { ...req.authHeader }
+				headers: req.sessHeaders
 			}
 		);
 		if (response.status >= 400 && response.status < 500)
 			return res.status(response.status).send(response.data);
+		else if (response.status >= 500)
+			return res.sendStatus(response.status);
 
 		// TODO: this whole section needs to be DRYer
 		// look into serializr
@@ -151,15 +151,13 @@ const getPlaylistDetails = async (req, res) => {
 		while (playlist.next) {
 			const nextResponse = await axiosInstance.get(
 				playlist.next, // absolute URL from previous response which has params
-				{
-					headers: {
-						...req.authHeader
-					}
-				}
+				{ headers: req.sessHeaders }
 			);
 
 			if (nextResponse.status >= 400 && nextResponse.status < 500)
 				return res.status(nextResponse.status).send(nextResponse.data);
+			else if (nextResponse.status >= 500)
+				return res.sendStatus(nextResponse.status);
 
 			playlist.tracks.push(
 				...nextResponse.data.items.map((playlist_item) => {

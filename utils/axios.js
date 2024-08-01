@@ -20,13 +20,13 @@ const axiosInstance = axios.default.create({
 	},
 });
 
-axiosInstance.interceptors.request.use(request => {
+axiosInstance.interceptors.request.use(config => {
 	logger.http("API call", {
-		url: request.url,
-		method: request.method,
-		params: request.params ?? {},
+		url: config.url,
+		method: config.method,
+		params: config.params ?? {},
 	});
-	return request;
+	return config;
 });
 
 axiosInstance.interceptors.response.use(
