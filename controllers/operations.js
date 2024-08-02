@@ -77,24 +77,24 @@ const updateUser = async (req, res) => {
 			},
 		});
 
-		let toRemove, toAdd;
+		let toRemovePls, toAddPls;
 		if (oldPlaylists.length) {
 			// existing user
 			const currentSet = new Set(currentPlaylists.map(pl => pl.playlistID));
 			const oldSet = new Set(oldPlaylists.map(pl => pl.playlistID));
 
 			// TODO: update playlist name
-			toAdd = currentPlaylists.filter(current => !oldSet.has(current.playlistID));
-			toRemove = oldPlaylists.filter(old => !currentSet.has(old.playlistID));
+			toAddPls = currentPlaylists.filter(current => !oldSet.has(current.playlistID));
+			toRemovePls = oldPlaylists.filter(old => !currentSet.has(old.playlistID));
 		} else {
 			// new user
-			toAdd = currentPlaylists;
-			toRemove = [];
+			toAddPls = currentPlaylists;
+			toRemovePls = [];
 		}
-		let toRemoveIDs = toRemove.map(pl => pl.playlistID);
+		let toRemovePlIDs = toRemovePls.map(pl => pl.playlistID);
 		let removedLinks = 0;
 
-		if (toRemove.length) {
+		if (toRemovePls.length) {
 			// clean up any links dependent on the playlists
 			removedLinks = await Links.destroy({
 				where: {
@@ -102,8 +102,8 @@ const updateUser = async (req, res) => {
 						{ userID: uID },
 						{
 							[Op.or]: [
-								{ from: { [Op.in]: toRemoveIDs } },
-								{ to: { [Op.in]: toRemoveIDs } },
+								{ from: { [Op.in]: toRemovePlIDs } },
+								{ to: { [Op.in]: toRemovePlIDs } },
 							]
 						}
 					]
@@ -112,20 +112,20 @@ const updateUser = async (req, res) => {
 
 			// only then remove
 			const cleanedUser = await Playlists.destroy({
-				where: { playlistID: toRemoveIDs }
+				where: { playlistID: toRemovePlIDs }
 			});
-			if (cleanedUser !== toRemove.length) {
+			if (cleanedUser !== toRemovePls.length) {
 				logger.error("Could not remove all old playlists", { error: new Error("Playlists.destroy failed?") });
 				return res.sendStatus(500);
 			}
 		}
 
-		if (toAdd.length) {
+		if (toAddPls.length) {
 			const updatedUser = await Playlists.bulkCreate(
-				toAdd.map(pl => { return { ...pl, userID: uID } }),
+				toAddPls.map(pl => { return { ...pl, userID: uID } }),
 				{ validate: true }
 			);
-			if (updatedUser.length !== toAdd.length) {
+			if (updatedUser.length !== toAddPls.length) {
 				logger.error("Could not add all new playlists", { error: new Error("Playlists.bulkCreate failed?") });
 				return res.sendStatus(500);
 			}
@@ -325,6 +325,8 @@ const removeLink = async (req, res) => {
  * 
  * after populateMissingInLink, pl_a will have tracks: a, b, c, e, d
  * 
+ * CANNOT populate local files; Spotify API does not support it yet.
+ * 
  * @param {typedefs.Req} req
  * @param {typedefs.Res} res
  */
@@ -379,7 +381,7 @@ const populateMissingInLink = async (req, res) => {
 			checkFromData.data.owner.id !== uID) {
 			logger.error("user cannot edit target playlist");
 			return res.status(403).send({
-				message: "You cannot edit this playlist, you must be owner/ playlist must be collaborative"
+				message: "You cannot edit this playlist, you must be owner/playlist must be collaborative"
 			});
 		}
 
@@ -493,15 +495,15 @@ const populateMissingInLink = async (req, res) => {
 
 		delete toPlaylist.next;
 
-		let fromURIs = fromPlaylist.tracks.map(track => track.uri);
-		let toURIs = toPlaylist.tracks.
+		const fromTrackURIs = fromPlaylist.tracks.map(track => track.uri);
+		let toTrackURIs = toPlaylist.tracks.
 			filter(track => !track.is_local). // API doesn't support adding local files to playlists yet
-			map(track => track.uri).
-			filter(track => !fromURIs.includes(track)); // only ones missing from the 'from' playlist
+			filter(track => !fromTrackURIs.includes(track.uri)). // only ones missing from the 'from' playlist
+			map(track => track.uri);
 
 		// add in batches of 100
-		while (toURIs.length) {
-			const nextBatch = toURIs.splice(0, 100);
+		while (toTrackURIs.length) {
+			const nextBatch = toTrackURIs.splice(0, 100);
 			const addResponse = await axiosInstance.post(
 				`/playlists/${fromPl.id}/tracks`,
 				{ uris: nextBatch },
@@ -520,10 +522,231 @@ const populateMissingInLink = async (req, res) => {
 	}
 }
 
+/**
+ * Remove tracks from the link-tail playlist,
+ * that are present in the link-tail playlist but not in the link-head playlist.
+ *  
+ * eg.
+ * 
+ * pl_a has tracks: a, b, c
+ * 
+ * pl_b has tracks: e, b, d, c, f, g
+ * 
+ * link from pl_a to pl_b exists
+ * 
+ * after pruneExcessInLink, pl_b will have tracks: b, c
+ * 
+ * @param {typedefs.Req} req
+ * @param {typedefs.Res} res
+ */
+const pruneExcessInLink = async (req, res) => {
+	try {
+		const uID = req.session.user.id;
+
+		let fromPl, toPl;
+		try {
+			fromPl = parseSpotifyLink(req.body["from"]);
+			toPl = parseSpotifyLink(req.body["to"]);
+			if (fromPl.type !== "playlist" || toPl.type !== "playlist") {
+				return res.status(400).send({ message: "Link is not a playlist" });
+			}
+		} catch (error) {
+			logger.error("parseSpotifyLink", { error });
+			return res.status(400).send({ message: "Invalid Spotify playlist link" });
+		}
+
+		// check if exists
+		const existingLink = await Links.findOne({
+			where: {
+				[Op.and]: [
+					{ userID: uID },
+					{ from: fromPl.id },
+					{ to: toPl.id }
+				]
+			}
+		});
+		if (!existingLink) {
+			logger.error("link does not exist");
+			return res.sendStatus(409);
+		}
+
+		let checkFields = ["collaborative", "owner(id)"];
+		const checkToData = await axiosInstance.get(
+			`/playlists/${toPl.id}/`,
+			{
+				params: {
+					fields: checkFields.join()
+				},
+				headers: req.sessHeaders
+			}
+		);
+		if (checkToData.status >= 400 && checkToData.status < 500)
+			return res.status(checkToData.status).send(checkToData.data);
+		else if (checkToData.status >= 500)
+			return res.sendStatus(checkToData.status);
+
+		// editable = collaborative || user is owner
+		if (checkToData.data.collaborative !== true &&
+			checkToData.data.owner.id !== uID) {
+			logger.error("user cannot edit target playlist");
+			return res.status(403).send({
+				message: "You cannot edit this playlist, you must be owner/playlist must be collaborative"
+			});
+		}
+
+		let initialFields = ["snapshot_id", "tracks(next,items(is_local,track(uri)))"];
+		let mainFields = ["next", "items(is_local,track(uri))"];
+		const fromData = await axiosInstance.get(
+			`/playlists/${fromPl.id}/`,
+			{
+				params: {
+					fields: initialFields.join()
+				},
+				headers: req.sessHeaders
+			}
+		);
+		if (fromData.status >= 400 && fromData.status < 500)
+			return res.status(fromData.status).send(fromData.data);
+		else if (fromData.status >= 500)
+			return res.sendStatus(fromData.status);
+
+		let fromPlaylist = {};
+		// varying fields again smh
+		fromPlaylist.snapshot_id = fromData.data.snapshot_id;
+		if (fromData.data.tracks.next) {
+			fromPlaylist.next = new URL(fromData.data.tracks.next);
+			fromPlaylist.next.searchParams.set("fields", mainFields.join());
+			fromPlaylist.next = fromPlaylist.next.href;
+		}
+		fromPlaylist.tracks = fromData.data.tracks.items.map((playlist_item) => {
+			return {
+				is_local: playlist_item.is_local,
+				uri: playlist_item.track.uri
+			}
+		});
+
+
+		// keep getting batches of 50 till exhausted
+		while (fromPlaylist.next) {
+			const nextResponse = await axiosInstance.get(
+				fromPlaylist.next, // absolute URL from previous response which has params
+				{ headers: req.sessHeaders }
+			);
+
+			if (nextResponse.status >= 400 && nextResponse.status < 500)
+				return res.status(nextResponse.status).send(nextResponse.data);
+			else if (nextResponse.status >= 500)
+				return res.sendStatus(nextResponse.status);
+
+			fromPlaylist.tracks.push(
+				...nextResponse.data.items.map((playlist_item) => {
+					return {
+						is_local: playlist_item.is_local,
+						uri: playlist_item.track.uri
+					}
+				})
+			);
+
+			fromPlaylist.next = nextResponse.data.next;
+		}
+
+		delete fromPlaylist.next;
+		const toData = await axiosInstance.get(
+			`/playlists/${toPl.id}/`,
+			{
+				params: {
+					fields: initialFields.join()
+				},
+				headers: req.sessHeaders
+			}
+		);
+		if (toData.status >= 400 && toData.status < 500)
+			return res.status(toData.status).send(toData.data);
+		else if (toData.status >= 500)
+			return res.sendStatus(toData.status);
+
+		let toPlaylist = {};
+		// varying fields again smh
+		toPlaylist.snapshot_id = toData.data.snapshot_id;
+		if (toData.data.tracks.next) {
+			toPlaylist.next = new URL(toData.data.tracks.next);
+			toPlaylist.next.searchParams.set("fields", mainFields.join());
+			toPlaylist.next = toPlaylist.next.href;
+		}
+		toPlaylist.tracks = toData.data.tracks.items.map((playlist_item) => {
+			return {
+				is_local: playlist_item.is_local,
+				uri: playlist_item.track.uri
+			}
+		});
+
+		// keep getting batches of 50 till exhausted
+		while (toPlaylist.next) {
+			const nextResponse = await axiosInstance.get(
+				toPlaylist.next, // absolute URL from previous response which has params
+				{ headers: req.sessHeaders }
+			);
+
+			if (nextResponse.status >= 400 && nextResponse.status < 500)
+				return res.status(nextResponse.status).send(nextResponse.data);
+			else if (nextResponse.status >= 500)
+				return res.sendStatus(nextResponse.status);
+
+			toPlaylist.tracks.push(
+				...nextResponse.data.items.map((playlist_item) => {
+					return {
+						is_local: playlist_item.is_local,
+						uri: playlist_item.track.uri
+					}
+				})
+			);
+
+			toPlaylist.next = nextResponse.data.next;
+		}
+
+		delete toPlaylist.next;
+
+		const fromTrackURIs = fromPlaylist.tracks.map(track => track.uri);
+		let indexedToTrackURIs = toPlaylist.tracks;
+
+		// forEach doesn't execute in given order, not sure what it uses to order
+		indexedToTrackURIs.forEach((track, index) => {
+			track.position = index;
+		});
+		
+		let indexes = indexedToTrackURIs.filter(track => !fromTrackURIs.includes(track.uri)); // only ones missing from the 'from' playlist
+		indexes = indexes.map(track => track.position); // get track positions
+		
+		// remove in batches of 100 (from reverse, to preserve positions)
+		let currentSnapshot = toPlaylist.snapshot_id;
+		while (indexes.length) {
+			const nextBatch = indexes.splice(Math.max(indexes.length - 100, 0), 100);
+			const delResponse = await axiosInstance.delete(
+				`/playlists/${toPl.id}/tracks`,
+				{
+					headers: req.sessHeaders,
+					data: { positions: nextBatch, snapshot_id: currentSnapshot },
+				}
+			);
+			if (delResponse.status >= 400 && delResponse.status < 500)
+				return res.status(delResponse.status).send(delResponse.data);
+			else if (delResponse.status >= 500)
+				return res.sendStatus(delResponse.status);
+			currentSnapshot = delResponse.data.snapshot_id;
+		}
+
+		return res.sendStatus(200);
+	} catch (error) {
+		logger.error('pruneExcessInLink', { error });
+		return res.sendStatus(500);
+	}
+}
+
 module.exports = {
 	updateUser,
 	fetchUser,
 	createLink,
 	removeLink,
 	populateMissingInLink,
+	pruneExcessInLink,
 };

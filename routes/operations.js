@@ -1,8 +1,8 @@
 const router = require('express').Router();
 
-const { updateUser, fetchUser, createLink, removeLink, populateMissingInLink } = require('../controllers/operations');
+const { updateUser, fetchUser, createLink, removeLink, populateMissingInLink, pruneExcessInLink } = require('../controllers/operations');
 const { validate } = require('../validators');
-const { createLinkValidator, removeLinkValidator, populateMissingInLinkValidator } = require('../validators/operations');
+const { createLinkValidator, removeLinkValidator, populateMissingInLinkValidator, pruneExcessInLinkValidator } = require('../validators/operations');
 
 router.put(
 	"/update",
@@ -33,6 +33,13 @@ router.put(
 	populateMissingInLinkValidator,
 	validate,
 	populateMissingInLink
+);
+
+router.put(
+	"/prune/link",
+	pruneExcessInLinkValidator,
+	validate,
+	pruneExcessInLink
 );
 
 module.exports = router;

@@ -82,6 +82,10 @@ const callback = async (req, res) => {
 					}
 				}
 			);
+			if (userResponse.status >= 400 && userResponse.status < 500)
+				return res.status(userResponse.status).send(userResponse.data);
+			else if (userResponse.status >= 500)
+				return res.sendStatus(userResponse.status);
 
 			/** @type {typedefs.User} */
 			req.session.user = {
