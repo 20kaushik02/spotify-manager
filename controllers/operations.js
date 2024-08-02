@@ -92,7 +92,8 @@ const updateUser = async (req, res) => {
 			toRemovePls = [];
 		}
 		let toRemovePlIDs = toRemovePls.map(pl => pl.playlistID);
-		let removedLinks = 0;
+
+		let removedLinks = 0, cleanedUser = 0, updatedUser = [];
 
 		if (toRemovePls.length) {
 			// clean up any links dependent on the playlists
@@ -111,7 +112,7 @@ const updateUser = async (req, res) => {
 			})
 
 			// only then remove
-			const cleanedUser = await Playlists.destroy({
+			cleanedUser = await Playlists.destroy({
 				where: { playlistID: toRemovePlIDs }
 			});
 			if (cleanedUser !== toRemovePls.length) {
@@ -121,7 +122,7 @@ const updateUser = async (req, res) => {
 		}
 
 		if (toAddPls.length) {
-			const updatedUser = await Playlists.bulkCreate(
+			updatedUser = await Playlists.bulkCreate(
 				toAddPls.map(pl => { return { ...pl, userID: uID } }),
 				{ validate: true }
 			);
@@ -131,6 +132,7 @@ const updateUser = async (req, res) => {
 			}
 		}
 
+		logger.info("Updated user data", { delLinks: removedLinks, delPls: cleanedUser, addPls: updatedUser.length });
 		return res.status(200).send({ removedLinks });
 	} catch (error) {
 		logger.error('updateUser', { error });
@@ -163,6 +165,7 @@ const fetchUser = async (req, res) => {
 			},
 		});
 
+		logger.info("Fetched user data", { pls: currentPlaylists.length, links: currentLinks.length });
 		return res.status(200).send({
 			playlists: currentPlaylists,
 			links: currentLinks
@@ -245,6 +248,7 @@ const createLink = async (req, res) => {
 			return res.sendStatus(500);
 		}
 
+		logger.info("Created link");
 		return res.sendStatus(201);
 	} catch (error) {
 		logger.error('createLink', { error });
@@ -303,6 +307,7 @@ const removeLink = async (req, res) => {
 			return res.sendStatus(500);
 		}
 
+		logger.info("Deleted link");
 		return res.sendStatus(200);
 	} catch (error) {
 		logger.error('removeLink', { error });
@@ -501,6 +506,8 @@ const populateMissingInLink = async (req, res) => {
 			filter(track => !fromTrackURIs.includes(track.uri)). // only ones missing from the 'from' playlist
 			map(track => track.uri);
 
+		const logNum = toTrackURIs.length;
+
 		// add in batches of 100
 		while (toTrackURIs.length) {
 			const nextBatch = toTrackURIs.splice(0, 100);
@@ -515,6 +522,7 @@ const populateMissingInLink = async (req, res) => {
 				return res.sendStatus(addResponse.status);
 		}
 
+		logger.info(`Backfilled ${logNum} tracks`);
 		return res.sendStatus(200);
 	} catch (error) {
 		logger.error('populateMissingInLink', { error });
@@ -713,10 +721,12 @@ const pruneExcessInLink = async (req, res) => {
 		indexedToTrackURIs.forEach((track, index) => {
 			track.position = index;
 		});
-		
+
 		let indexes = indexedToTrackURIs.filter(track => !fromTrackURIs.includes(track.uri)); // only ones missing from the 'from' playlist
 		indexes = indexes.map(track => track.position); // get track positions
-		
+
+		const logNum = indexes.length;
+
 		// remove in batches of 100 (from reverse, to preserve positions)
 		let currentSnapshot = toPlaylist.snapshot_id;
 		while (indexes.length) {
@@ -725,7 +735,7 @@ const pruneExcessInLink = async (req, res) => {
 				`/playlists/${toPl.id}/tracks`,
 				{
 					headers: req.sessHeaders,
-					data: { positions: nextBatch, snapshot_id: currentSnapshot },
+					data: { positions: nextBatch, snapshot_id: currentSnapshot }, // delete method doesn't have separate arg for body 
 				}
 			);
 			if (delResponse.status >= 400 && delResponse.status < 500)
@@ -735,6 +745,7 @@ const pruneExcessInLink = async (req, res) => {
 			currentSnapshot = delResponse.data.snapshot_id;
 		}
 
+		logger.info(`Pruned ${logNum} tracks`);
 		return res.sendStatus(200);
 	} catch (error) {
 		logger.error('pruneExcessInLink', { error });

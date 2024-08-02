@@ -71,6 +71,7 @@ const getUserPlaylists = async (req, res) => {
 
 		delete userPlaylists.next;
 
+		logger.debug("Fetched user's playlists", { num: userPlaylists.total });
 		return res.status(200).send(userPlaylists);
 	} catch (error) {
 		logger.error('getUserPlaylists', { error });
@@ -177,6 +178,7 @@ const getPlaylistDetails = async (req, res) => {
 
 		delete playlist.next;
 
+		logger.info("Fetched playlist tracks", { num: playlist.tracks.length });
 		return res.status(200).send(playlist);
 	} catch (error) {
 		logger.error('getPlaylistDetails', { error });
