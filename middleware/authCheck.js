@@ -18,17 +18,19 @@ const isAuthenticated = (req, res, next) => {
 	} else {
 		const delSession = req.session.destroy((err) => {
 			if (err) {
+				res.sendStatus(500);
 				logger.error("Error while destroying session.", { err });
-				return res.sendStatus(500);
+				return;
 			} else {
-				logger.info("Session invalid, destroyed.", { sessionID: delSession.id });
 				res.clearCookie(sessionName);
-				return res.sendStatus(401);
+				res.sendStatus(401);
+				logger.debug("Session invalid, destroyed.", { sessionID: delSession.id });
+				return;
 			}
 		});
 	}
 }
 
 module.exports = {
-	isAuthenticated
+	isAuthenticated,
 }

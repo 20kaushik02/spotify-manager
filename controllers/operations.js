@@ -6,6 +6,7 @@ const myGraph = require("../utils/graph");
 const { parseSpotifyLink } = require("../utils/spotifyURITransformer");
 
 const { Op } = require("sequelize");
+const { singleRequest } = require("./apiCall");
 /** @type {typedefs.Model} */
 const Playlists = require("../models").playlists;
 /** @type {typedefs.Model} */
@@ -344,11 +345,14 @@ const populateMissingInLink = async (req, res) => {
 			fromPl = parseSpotifyLink(req.body["from"]);
 			toPl = parseSpotifyLink(req.body["to"]);
 			if (fromPl.type !== "playlist" || toPl.type !== "playlist") {
-				return res.status(400).send({ message: "Link is not a playlist" });
+				res.status(400).send({ message: "Link is not a playlist" });
+				logger.warn("non-playlist link provided", { from: fromPl, to: toPl });
+				return;
 			}
 		} catch (error) {
+			res.status(400).send({ message: "Invalid Spotify playlist link" });
 			logger.error("parseSpotifyLink", { error });
-			return res.status(400).send({ message: "Invalid Spotify playlist link" });
+			return;
 		}
 
 		// check if exists
@@ -362,32 +366,33 @@ const populateMissingInLink = async (req, res) => {
 			}
 		});
 		if (!existingLink) {
+			res.sendStatus(409);
 			logger.error("link does not exist");
-			return res.sendStatus(409);
+			return;
 		}
 
 		let checkFields = ["collaborative", "owner(id)"];
-		const checkFromData = await axiosInstance.get(
+
+		const checkResp = await singleRequest(req, res,
+			"GET",
 			`/playlists/${fromPl.id}/`,
 			{
 				params: {
 					fields: checkFields.join()
 				},
-				headers: req.sessHeaders
-			}
-		);
-		if (checkFromData.status >= 400 && checkFromData.status < 500)
-			return res.status(checkFromData.status).send(checkFromData.data);
-		else if (checkFromData.status >= 500)
-			return res.sendStatus(checkFromData.status);
+			});
+		if (!checkResp.success) return;
+
+		const checkFromData = checkResp.resp.data;
 
 		// editable = collaborative || user is owner
-		if (checkFromData.data.collaborative !== true &&
-			checkFromData.data.owner.id !== uID) {
-			logger.error("user cannot edit target playlist");
-			return res.status(403).send({
+		if (checkFromData.collaborative !== true &&
+			checkFromData.owner.id !== uID) {
+			res.status(403).send({
 				message: "You cannot edit this playlist, you must be owner/playlist must be collaborative"
 			});
+			logger.error("user cannot edit target playlist");
+			return;
 		}
 
 		let initialFields = ["tracks(next,items(is_local,track(uri)))"];
@@ -508,25 +513,25 @@ const populateMissingInLink = async (req, res) => {
 
 		const logNum = toTrackURIs.length;
 
-		// add in batches of 100
+		// append to end in batches of 100
 		while (toTrackURIs.length) {
 			const nextBatch = toTrackURIs.splice(0, 100);
-			const addResponse = await axiosInstance.post(
+			const addResponse = await singleRequest(req, res,
+				"POST",
 				`/playlists/${fromPl.id}/tracks`,
-				{ uris: nextBatch },
-				{ headers: req.sessHeaders }
+				{},
+				{ uris: nextBatch }, false
 			);
-			if (addResponse.status >= 400 && addResponse.status < 500)
-				return res.status(addResponse.status).send(addResponse.data);
-			else if (addResponse.status >= 500)
-				return res.sendStatus(addResponse.status);
+			if (!addResponse.success) return;
 		}
 
+		res.status(200).send({ message: `Added ${logNum} tracks.` });
 		logger.info(`Backfilled ${logNum} tracks`);
-		return res.sendStatus(200);
+		return;
 	} catch (error) {
+		res.sendStatus(500);
 		logger.error('populateMissingInLink', { error });
-		return res.sendStatus(500);
+		return;
 	}
 }
 
@@ -556,11 +561,14 @@ const pruneExcessInLink = async (req, res) => {
 			fromPl = parseSpotifyLink(req.body["from"]);
 			toPl = parseSpotifyLink(req.body["to"]);
 			if (fromPl.type !== "playlist" || toPl.type !== "playlist") {
-				return res.status(400).send({ message: "Link is not a playlist" });
+				res.status(400).send({ message: "Link is not a playlist" });
+				logger.warn("non-playlist link provided", { from: fromPl, to: toPl });
+				return
 			}
 		} catch (error) {
+			res.status(400).send({ message: "Invalid Spotify playlist link" });
 			logger.error("parseSpotifyLink", { error });
-			return res.status(400).send({ message: "Invalid Spotify playlist link" });
+			return;
 		}
 
 		// check if exists
@@ -574,32 +582,33 @@ const pruneExcessInLink = async (req, res) => {
 			}
 		});
 		if (!existingLink) {
+			res.sendStatus(409);
 			logger.error("link does not exist");
-			return res.sendStatus(409);
+			return
 		}
 
 		let checkFields = ["collaborative", "owner(id)"];
-		const checkToData = await axiosInstance.get(
+
+		const checkToResp = await singleRequest(req, res,
+			"GET",
 			`/playlists/${toPl.id}/`,
 			{
 				params: {
 					fields: checkFields.join()
 				},
-				headers: req.sessHeaders
-			}
-		);
-		if (checkToData.status >= 400 && checkToData.status < 500)
-			return res.status(checkToData.status).send(checkToData.data);
-		else if (checkToData.status >= 500)
-			return res.sendStatus(checkToData.status);
+			});
+
+		if (!checkToResp.success) return;
+		const checkToData = checkToResp.resp.data;
 
 		// editable = collaborative || user is owner
-		if (checkToData.data.collaborative !== true &&
-			checkToData.data.owner.id !== uID) {
-			logger.error("user cannot edit target playlist");
-			return res.status(403).send({
+		if (checkToData.collaborative !== true &&
+			checkToData.owner.id !== uID) {
+			res.status(403).send({
 				message: "You cannot edit this playlist, you must be owner/playlist must be collaborative"
 			});
+			logger.error("user cannot edit target playlist");
+			return;
 		}
 
 		let initialFields = ["snapshot_id", "tracks(next,items(is_local,track(uri)))"];
@@ -717,39 +726,37 @@ const pruneExcessInLink = async (req, res) => {
 		const fromTrackURIs = fromPlaylist.tracks.map(track => track.uri);
 		let indexedToTrackURIs = toPlaylist.tracks;
 
-		// forEach doesn't execute in given order, not sure what it uses to order
 		indexedToTrackURIs.forEach((track, index) => {
 			track.position = index;
 		});
 
-		let indexes = indexedToTrackURIs.filter(track => !fromTrackURIs.includes(track.uri)); // only ones missing from the 'from' playlist
+		let indexes = indexedToTrackURIs.filter(track => !fromTrackURIs.includes(track.uri)); // only those missing from the 'from' playlist
 		indexes = indexes.map(track => track.position); // get track positions
 
 		const logNum = indexes.length;
 
-		// remove in batches of 100 (from reverse, to preserve positions)
+		// remove in batches of 100 (from reverse, to preserve positions while modifying)
 		let currentSnapshot = toPlaylist.snapshot_id;
 		while (indexes.length) {
 			const nextBatch = indexes.splice(Math.max(indexes.length - 100, 0), 100);
-			const delResponse = await axiosInstance.delete(
+			const delResponse = await singleRequest(req, res,
+				"DELETE",
 				`/playlists/${toPl.id}/tracks`,
-				{
-					headers: req.sessHeaders,
-					data: { positions: nextBatch, snapshot_id: currentSnapshot }, // delete method doesn't have separate arg for body 
-				}
-			);
-			if (delResponse.status >= 400 && delResponse.status < 500)
-				return res.status(delResponse.status).send(delResponse.data);
-			else if (delResponse.status >= 500)
-				return res.sendStatus(delResponse.status);
-			currentSnapshot = delResponse.data.snapshot_id;
+				{},
+				// axios delete method doesn't have separate arg for body so hv to put it in config
+				{ positions: nextBatch, snapshot_id: currentSnapshot }, true
+			)
+			if (!delResponse.success) return;
+			currentSnapshot = delResponse.resp.data.snapshot_id;
 		}
 
+		res.status(200).send({ message: `Removed ${logNum} tracks.` });
 		logger.info(`Pruned ${logNum} tracks`);
-		return res.sendStatus(200);
+		return;
 	} catch (error) {
+		res.sendStatus(500);
 		logger.error('pruneExcessInLink', { error });
-		return res.sendStatus(500);
+		return;
 	}
 }
 

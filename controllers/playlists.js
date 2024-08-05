@@ -71,8 +71,9 @@ const getUserPlaylists = async (req, res) => {
 
 		delete userPlaylists.next;
 
+		res.status(200).send(userPlaylists);
 		logger.debug("Fetched user's playlists", { num: userPlaylists.total });
-		return res.status(200).send(userPlaylists);
+		return;
 	} catch (error) {
 		logger.error('getUserPlaylists', { error });
 		return res.sendStatus(500);
@@ -97,11 +98,14 @@ const getPlaylistDetails = async (req, res) => {
 		try {
 			uri = parseSpotifyLink(req.query.playlist_link)
 			if (uri.type !== "playlist") {
-				return res.status(400).send({ message: "Link is not a playlist" });
+				res.status(400).send({ message: "Link is not a playlist" });
+				logger.warn("non-playlist link provided", { uri });
+				return;
 			}
 		} catch (error) {
+			res.status(400).send({ message: "Invalid Spotify playlist link" });
 			logger.error("parseSpotifyLink", { error });
-			return res.status(400).send({ message: "Invalid Spotify playlist link" });
+			return;
 		}
 
 		const response = await axiosInstance.get(
@@ -178,11 +182,13 @@ const getPlaylistDetails = async (req, res) => {
 
 		delete playlist.next;
 
+		res.status(200).send(playlist);
 		logger.info("Fetched playlist tracks", { num: playlist.tracks.length });
-		return res.status(200).send(playlist);
+		return;
 	} catch (error) {
+		res.sendStatus(500);
 		logger.error('getPlaylistDetails', { error });
-		return res.sendStatus(500);
+		return;
 	}
 }
 

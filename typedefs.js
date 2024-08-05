@@ -5,6 +5,9 @@
  * @typedef {import('express').Response} Res
  * @typedef {import('express').NextFunction} Next
  * 
+ * @typedef {import('axios').Method} AxiosMethod
+ * @typedef {import('axios').AxiosRequestConfig} AxiosRequestConfig
+ * 
  * @typedef {import("sequelize").Sequelize} Sequelize
  * @typedef {import("sequelize").Model} Model
  * @typedef {import("sequelize").QueryInterface} QueryInterface
