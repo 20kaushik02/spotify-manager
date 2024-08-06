@@ -25,6 +25,7 @@ axiosInstance.interceptors.request.use(config => {
 		url: config.url,
 		method: config.method,
 		params: config.params ?? {},
+		headers: Object.keys(config.headers),
 	});
 	return config;
 });
@@ -32,9 +33,15 @@ axiosInstance.interceptors.request.use(config => {
 axiosInstance.interceptors.response.use(
 	(response) => response,
 	(error) => {
-		logger.warn("AxiosError", { req: error.config });
-		if (error.response)
-			return error.response;
+		logger.warn("AxiosError", {
+			error: {
+				name: error.name,
+				code: error.code,
+				message: error.message,
+				stack: error.stack,
+			},
+			req: error.config,
+		});
 		return Promise.reject(error);
 	}
 );

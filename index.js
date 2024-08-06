@@ -67,7 +67,6 @@ app.use((_req, res) => {
 const port = process.env.PORT || 3000;
 
 const server = app.listen(port, () => {
-	logger.debug("-", { _: "_".repeat(100) });
 	logger.info(`App Listening on port ${port}`);
 });
 

@@ -1,12 +1,11 @@
 const typedefs = require("../typedefs");
 const logger = require("../utils/logger")(module);
 
-const { axiosInstance } = require("../utils/axios");
-const myGraph = require("../utils/graph");
+const { singleRequest } = require("./apiCall");
 const { parseSpotifyLink } = require("../utils/spotifyURITransformer");
+const myGraph = require("../utils/graph");
 
 const { Op } = require("sequelize");
-const { singleRequest } = require("./apiCall");
 /** @type {typedefs.Model} */
 const Playlists = require("../models").playlists;
 /** @type {typedefs.Model} */
@@ -23,43 +22,34 @@ const updateUser = async (req, res) => {
 		const uID = req.session.user.id;
 
 		// get first 50
-		const response = await axiosInstance.get(
+		const response = await singleRequest(req, res,
+			"GET",
 			`/users/${uID}/playlists`,
 			{
 				params: {
 					offset: 0,
 					limit: 50,
 				},
-				headers: req.sessHeaders
-			}
-		);
+			});
+		if (!response.success) return;
+		const respData = response.resp.data;
 
-		if (response.status >= 400 && response.status < 500)
-			return res.status(response.status).send(response.data);
-		else if (response.status >= 500)
-			return res.sendStatus(response.status);
-
-		currentPlaylists = response.data.items.map(playlist => {
+		currentPlaylists = respData.items.map(playlist => {
 			return {
 				playlistID: playlist.id,
 				playlistName: playlist.name
 			}
 		});
-		nextURL = response.data.next;
+		let nextURL = respData.next;
 
 		// keep getting batches of 50 till exhausted
 		while (nextURL) {
-			const nextResponse = await axiosInstance.get(
-				nextURL, // absolute URL from previous response which has params
-				{ headers: req.sessHeaders }
-			);
-			if (response.status >= 400 && response.status < 500)
-				return res.status(response.status).send(response.data);
-			else if (response.status >= 500)
-				return res.sendStatus(response.status);
+			const nextResp = await singleRequest(req, res, "GET", nextURL);
+			if (!nextResp.success) return;
+			const nextData = nextResp.resp.data;
 
 			currentPlaylists.push(
-				...nextResponse.data.items.map(playlist => {
+				...nextData.items.map(playlist => {
 					return {
 						playlistID: playlist.id,
 						playlistName: playlist.name
@@ -67,7 +57,7 @@ const updateUser = async (req, res) => {
 				})
 			);
 
-			nextURL = nextResponse.data.next;
+			nextURL = nextData.next;
 		}
 
 		let oldPlaylists = await Playlists.findAll({
@@ -117,8 +107,9 @@ const updateUser = async (req, res) => {
 				where: { playlistID: toRemovePlIDs }
 			});
 			if (cleanedUser !== toRemovePls.length) {
+				res.sendStatus(500);
 				logger.error("Could not remove all old playlists", { error: new Error("Playlists.destroy failed?") });
-				return res.sendStatus(500);
+				return;
 			}
 		}
 
@@ -128,16 +119,19 @@ const updateUser = async (req, res) => {
 				{ validate: true }
 			);
 			if (updatedUser.length !== toAddPls.length) {
+				res.sendStatus(500);
 				logger.error("Could not add all new playlists", { error: new Error("Playlists.bulkCreate failed?") });
-				return res.sendStatus(500);
+				return;
 			}
 		}
 
+		res.status(200).send({ removedLinks });
 		logger.info("Updated user data", { delLinks: removedLinks, delPls: cleanedUser, addPls: updatedUser.length });
-		return res.status(200).send({ removedLinks });
+		return;
 	} catch (error) {
+		res.sendStatus(500);
 		logger.error('updateUser', { error });
-		return res.sendStatus(500);
+		return;
 	}
 }
 
@@ -166,14 +160,16 @@ const fetchUser = async (req, res) => {
 			},
 		});
 
-		logger.info("Fetched user data", { pls: currentPlaylists.length, links: currentLinks.length });
-		return res.status(200).send({
+		res.status(200).send({
 			playlists: currentPlaylists,
 			links: currentLinks
 		});
+		logger.info("Fetched user data", { pls: currentPlaylists.length, links: currentLinks.length });
+		return;
 	} catch (error) {
+		res.sendStatus(500);
 		logger.error('fetchUser', { error });
-		return res.sendStatus(500);
+		return;
 	}
 }
 
@@ -191,11 +187,15 @@ const createLink = async (req, res) => {
 			fromPl = parseSpotifyLink(req.body["from"]);
 			toPl = parseSpotifyLink(req.body["to"]);
 			if (fromPl.type !== "playlist" || toPl.type !== "playlist") {
-				return res.status(400).send({ message: "Link is not a playlist" });
+				res.status(400).send({ message: "Link is not a playlist" });
+				logger.warn("non-playlist link provided", { from: fromPl, to: toPl });
+
+				return;
 			}
 		} catch (error) {
+			res.status(400).send({ message: "Invalid Spotify playlist link" });
 			logger.error("parseSpotifyLink", { error });
-			return res.status(400).send({ message: "Invalid Spotify playlist link" });
+			return;
 		}
 
 		let playlists = await Playlists.findAll({
@@ -207,8 +207,9 @@ const createLink = async (req, res) => {
 
 		// if playlists are unknown
 		if (![fromPl, toPl].every(pl => playlists.includes(pl.id))) {
+			res.sendStatus(404);
 			logger.error("unknown playlists, resync");
-			return res.sendStatus(404);
+			return;
 		}
 
 		// check if exists
@@ -222,8 +223,9 @@ const createLink = async (req, res) => {
 			}
 		});
 		if (existingLink) {
+			res.sendStatus(409);
 			logger.error("link already exists");
-			return res.sendStatus(409);
+			return;
 		}
 
 		const allLinks = await Links.findAll({
@@ -235,8 +237,9 @@ const createLink = async (req, res) => {
 		const newGraph = new myGraph(playlists, [...allLinks, { from: fromPl.id, to: toPl.id }]);
 
 		if (newGraph.detectCycle()) {
+			res.status(400).send({ message: "Proposed link cannot cause a cycle in the graph" });
 			logger.error("potential cycle detected");
-			return res.status(400).send({ message: "Proposed link cannot cause a cycle in the graph" });
+			return;
 		}
 
 		const newLink = await Links.create({
@@ -245,15 +248,18 @@ const createLink = async (req, res) => {
 			to: toPl.id
 		});
 		if (!newLink) {
+			res.sendStatus(500);
 			logger.error("Could not create link", { error: new Error("Links.create failed?") });
-			return res.sendStatus(500);
+			return;
 		}
 
+		res.sendStatus(201);
 		logger.info("Created link");
-		return res.sendStatus(201);
+		return;
 	} catch (error) {
+		res.sendStatus(500);
 		logger.error('createLink', { error });
-		return res.sendStatus(500);
+		return;
 	}
 }
 
@@ -272,11 +278,14 @@ const removeLink = async (req, res) => {
 			fromPl = parseSpotifyLink(req.body["from"]);
 			toPl = parseSpotifyLink(req.body["to"]);
 			if (fromPl.type !== "playlist" || toPl.type !== "playlist") {
-				return res.status(400).send({ message: "Link is not a playlist" });
+				res.status(400).send({ message: "Link is not a playlist" });
+				logger.warn("non-playlist link provided", { from: fromPl, to: toPl });
+				return;
 			}
 		} catch (error) {
+			res.status(400).send({ message: "Invalid Spotify playlist link" });
 			logger.error("parseSpotifyLink", { error });
-			return res.status(400).send({ message: "Invalid Spotify playlist link" });
+			return;
 		}
 
 		// check if exists
@@ -290,8 +299,9 @@ const removeLink = async (req, res) => {
 			}
 		});
 		if (!existingLink) {
+			res.sendStatus(409);
 			logger.error("link does not exist");
-			return res.sendStatus(409);
+			return;
 		}
 
 		const removedLink = await Links.destroy({
@@ -304,15 +314,18 @@ const removeLink = async (req, res) => {
 			}
 		});
 		if (!removedLink) {
+			res.sendStatus(500);
 			logger.error("Could not remove link", { error: new Error("Links.destroy failed?") });
-			return res.sendStatus(500);
+			return;
 		}
 
+		res.sendStatus(200);
 		logger.info("Deleted link");
-		return res.sendStatus(200);
+		return;
 	} catch (error) {
+		res.sendStatus(500);
 		logger.error('removeLink', { error });
-		return res.sendStatus(500);
+		return;
 	}
 }
 
@@ -397,28 +410,26 @@ const populateMissingInLink = async (req, res) => {
 
 		let initialFields = ["tracks(next,items(is_local,track(uri)))"];
 		let mainFields = ["next", "items(is_local,track(uri))"];
-		const fromData = await axiosInstance.get(
+
+		const fromResp = await singleRequest(req, res,
+			"GET",
 			`/playlists/${fromPl.id}/`,
 			{
 				params: {
 					fields: initialFields.join()
 				},
-				headers: req.sessHeaders
-			}
-		);
-		if (fromData.status >= 400 && fromData.status < 500)
-			return res.status(fromData.status).send(fromData.data);
-		else if (fromData.status >= 500)
-			return res.sendStatus(fromData.status);
+			});
+		if (!fromResp.success) return;
+		const fromData = fromResp.resp.data;
 
 		let fromPlaylist = {};
 		// varying fields again smh
-		if (fromData.data.tracks.next) {
-			fromPlaylist.next = new URL(fromData.data.tracks.next);
+		if (fromData.tracks.next) {
+			fromPlaylist.next = new URL(fromData.tracks.next);
 			fromPlaylist.next.searchParams.set("fields", mainFields.join());
 			fromPlaylist.next = fromPlaylist.next.href;
 		}
-		fromPlaylist.tracks = fromData.data.tracks.items.map((playlist_item) => {
+		fromPlaylist.tracks = fromData.tracks.items.map((playlist_item) => {
 			return {
 				is_local: playlist_item.is_local,
 				uri: playlist_item.track.uri
@@ -428,18 +439,13 @@ const populateMissingInLink = async (req, res) => {
 
 		// keep getting batches of 50 till exhausted
 		while (fromPlaylist.next) {
-			const nextResponse = await axiosInstance.get(
-				fromPlaylist.next, // absolute URL from previous response which has params
-				{ headers: req.sessHeaders }
-			);
-
-			if (nextResponse.status >= 400 && nextResponse.status < 500)
-				return res.status(nextResponse.status).send(nextResponse.data);
-			else if (nextResponse.status >= 500)
-				return res.sendStatus(nextResponse.status);
+			const nextResp = await singleRequest(req, res,
+				"GET", fromPlaylist.next);
+			if (!nextResp.success) return;
+			const nextData = nextResp.resp.data;
 
 			fromPlaylist.tracks.push(
-				...nextResponse.data.items.map((playlist_item) => {
+				...nextData.items.map((playlist_item) => {
 					return {
 						is_local: playlist_item.is_local,
 						uri: playlist_item.track.uri
@@ -447,32 +453,30 @@ const populateMissingInLink = async (req, res) => {
 				})
 			);
 
-			fromPlaylist.next = nextResponse.data.next;
+			fromPlaylist.next = nextData.next;
 		}
 
 		delete fromPlaylist.next;
-		const toData = await axiosInstance.get(
+
+		const toResp = await singleRequest(req, res,
+			"GET",
 			`/playlists/${toPl.id}/`,
 			{
 				params: {
 					fields: initialFields.join()
 				},
-				headers: req.sessHeaders
-			}
-		);
-		if (toData.status >= 400 && toData.status < 500)
-			return res.status(toData.status).send(toData.data);
-		else if (toData.status >= 500)
-			return res.sendStatus(toData.status);
+			});
+		if (!toResp.success) return;
+		const toData = toResp.resp.data;
 
 		let toPlaylist = {};
 		// varying fields again smh
-		if (toData.data.tracks.next) {
-			toPlaylist.next = new URL(toData.data.tracks.next);
+		if (toData.tracks.next) {
+			toPlaylist.next = new URL(toData.tracks.next);
 			toPlaylist.next.searchParams.set("fields", mainFields.join());
 			toPlaylist.next = toPlaylist.next.href;
 		}
-		toPlaylist.tracks = toData.data.tracks.items.map((playlist_item) => {
+		toPlaylist.tracks = toData.tracks.items.map((playlist_item) => {
 			return {
 				is_local: playlist_item.is_local,
 				uri: playlist_item.track.uri
@@ -481,18 +485,12 @@ const populateMissingInLink = async (req, res) => {
 
 		// keep getting batches of 50 till exhausted
 		while (toPlaylist.next) {
-			const nextResponse = await axiosInstance.get(
-				toPlaylist.next, // absolute URL from previous response which has params
-				{ headers: req.sessHeaders }
-			);
-
-			if (nextResponse.status >= 400 && nextResponse.status < 500)
-				return res.status(nextResponse.status).send(nextResponse.data);
-			else if (nextResponse.status >= 500)
-				return res.sendStatus(nextResponse.status);
-
+			const nextResp = await singleRequest(req, res,
+				"GET", toPlaylist.next);
+			if (!nextResp.success) return;
+			const nextData = nextResp.resp.data;
 			toPlaylist.tracks.push(
-				...nextResponse.data.items.map((playlist_item) => {
+				...nextData.items.map((playlist_item) => {
 					return {
 						is_local: playlist_item.is_local,
 						uri: playlist_item.track.uri
@@ -500,7 +498,7 @@ const populateMissingInLink = async (req, res) => {
 				})
 			);
 
-			toPlaylist.next = nextResponse.data.next;
+			toPlaylist.next = nextData.next;
 		}
 
 		delete toPlaylist.next;
@@ -613,50 +611,42 @@ const pruneExcessInLink = async (req, res) => {
 
 		let initialFields = ["snapshot_id", "tracks(next,items(is_local,track(uri)))"];
 		let mainFields = ["next", "items(is_local,track(uri))"];
-		const fromData = await axiosInstance.get(
+
+		const fromResp = await singleRequest(req, res,
+			"GET",
 			`/playlists/${fromPl.id}/`,
 			{
 				params: {
 					fields: initialFields.join()
 				},
-				headers: req.sessHeaders
-			}
-		);
-		if (fromData.status >= 400 && fromData.status < 500)
-			return res.status(fromData.status).send(fromData.data);
-		else if (fromData.status >= 500)
-			return res.sendStatus(fromData.status);
+			});
+		if (!fromResp.success) return;
+		const fromData = fromResp.resp.data;
 
 		let fromPlaylist = {};
 		// varying fields again smh
-		fromPlaylist.snapshot_id = fromData.data.snapshot_id;
-		if (fromData.data.tracks.next) {
-			fromPlaylist.next = new URL(fromData.data.tracks.next);
+		fromPlaylist.snapshot_id = fromData.snapshot_id;
+		if (fromData.tracks.next) {
+			fromPlaylist.next = new URL(fromData.tracks.next);
 			fromPlaylist.next.searchParams.set("fields", mainFields.join());
 			fromPlaylist.next = fromPlaylist.next.href;
 		}
-		fromPlaylist.tracks = fromData.data.tracks.items.map((playlist_item) => {
+		fromPlaylist.tracks = fromData.tracks.items.map((playlist_item) => {
 			return {
 				is_local: playlist_item.is_local,
 				uri: playlist_item.track.uri
 			}
 		});
 
-
 		// keep getting batches of 50 till exhausted
 		while (fromPlaylist.next) {
-			const nextResponse = await axiosInstance.get(
-				fromPlaylist.next, // absolute URL from previous response which has params
-				{ headers: req.sessHeaders }
-			);
-
-			if (nextResponse.status >= 400 && nextResponse.status < 500)
-				return res.status(nextResponse.status).send(nextResponse.data);
-			else if (nextResponse.status >= 500)
-				return res.sendStatus(nextResponse.status);
+			const nextResp = await singleRequest(req, res,
+				"GET", fromPlaylist.next);
+			if (!nextResp.success) return;
+			const nextData = nextResp.resp.data;
 
 			fromPlaylist.tracks.push(
-				...nextResponse.data.items.map((playlist_item) => {
+				...nextData.items.map((playlist_item) => {
 					return {
 						is_local: playlist_item.is_local,
 						uri: playlist_item.track.uri
@@ -664,33 +654,29 @@ const pruneExcessInLink = async (req, res) => {
 				})
 			);
 
-			fromPlaylist.next = nextResponse.data.next;
+			fromPlaylist.next = nextData.next;
 		}
 
 		delete fromPlaylist.next;
-		const toData = await axiosInstance.get(
+		const toResp = await singleRequest(req, res,
+			"GET",
 			`/playlists/${toPl.id}/`,
 			{
 				params: {
 					fields: initialFields.join()
 				},
-				headers: req.sessHeaders
-			}
-		);
-		if (toData.status >= 400 && toData.status < 500)
-			return res.status(toData.status).send(toData.data);
-		else if (toData.status >= 500)
-			return res.sendStatus(toData.status);
-
+			});
+		if (!toResp.success) return;
+		const toData = toResp.resp.data;
 		let toPlaylist = {};
 		// varying fields again smh
-		toPlaylist.snapshot_id = toData.data.snapshot_id;
-		if (toData.data.tracks.next) {
-			toPlaylist.next = new URL(toData.data.tracks.next);
+		toPlaylist.snapshot_id = toData.snapshot_id;
+		if (toData.tracks.next) {
+			toPlaylist.next = new URL(toData.tracks.next);
 			toPlaylist.next.searchParams.set("fields", mainFields.join());
 			toPlaylist.next = toPlaylist.next.href;
 		}
-		toPlaylist.tracks = toData.data.tracks.items.map((playlist_item) => {
+		toPlaylist.tracks = toData.tracks.items.map((playlist_item) => {
 			return {
 				is_local: playlist_item.is_local,
 				uri: playlist_item.track.uri
@@ -699,18 +685,13 @@ const pruneExcessInLink = async (req, res) => {
 
 		// keep getting batches of 50 till exhausted
 		while (toPlaylist.next) {
-			const nextResponse = await axiosInstance.get(
-				toPlaylist.next, // absolute URL from previous response which has params
-				{ headers: req.sessHeaders }
-			);
-
-			if (nextResponse.status >= 400 && nextResponse.status < 500)
-				return res.status(nextResponse.status).send(nextResponse.data);
-			else if (nextResponse.status >= 500)
-				return res.sendStatus(nextResponse.status);
+			const nextResp = await singleRequest(req, res,
+				"GET", toPlaylist.next);
+			if (!nextResp.success) return;
+			const nextData = nextResp.resp.data;
 
 			toPlaylist.tracks.push(
-				...nextResponse.data.items.map((playlist_item) => {
+				...nextData.items.map((playlist_item) => {
 					return {
 						is_local: playlist_item.is_local,
 						uri: playlist_item.track.uri
@@ -718,7 +699,7 @@ const pruneExcessInLink = async (req, res) => {
 				})
 			);
 
-			toPlaylist.next = nextResponse.data.next;
+			toPlaylist.next = nextData.next;
 		}
 
 		delete toPlaylist.next;

@@ -1,7 +1,7 @@
 const logger = require("../utils/logger")(module);
 
 const typedefs = require("../typedefs");
-const { axiosInstance } = require('../utils/axios');
+const { singleRequest } = require("./apiCall");
 const { parseSpotifyLink } = require("../utils/spotifyURITransformer");
 
 /**
@@ -14,26 +14,21 @@ const getUserPlaylists = async (req, res) => {
 		let userPlaylists = {};
 
 		// get first 50
-		const response = await axiosInstance.get(
+		const response = await singleRequest(req, res,
+			"GET",
 			`/users/${req.session.user.id}/playlists`,
 			{
 				params: {
 					offset: 0,
-					limit: 50,
+					limit: 100,
 				},
-				headers: req.sessHeaders
-			}
-		);
+			});
+		if (!response.success) return;
+		const respData = response.resp.data;
 
-		if (response.status >= 400 && response.status < 500)
-			return res.status(response.status).send(response.data);
-		else if (response.status >= 500)
-			return res.sendStatus(response.status);
+		userPlaylists.total = respData.total;
 
-		userPlaylists.total = response.data.total;
-
-		/** @type {typedefs.SimplifiedPlaylist[]} */
-		userPlaylists.items = response.data.items.map((playlist) => {
+		userPlaylists.items = respData.items.map((playlist) => {
 			return {
 				uri: playlist.uri,
 				images: playlist.images,
@@ -42,21 +37,16 @@ const getUserPlaylists = async (req, res) => {
 			}
 		});
 
-		userPlaylists.next = response.data.next;
-
+		userPlaylists.next = respData.next;
 		// keep getting batches of 50 till exhausted
 		while (userPlaylists.next) {
-			const nextResponse = await axiosInstance.get(
-				userPlaylists.next, // absolute URL from previous response which has params
-				{ headers: req.sessHeaders }
-			);
-			if (response.status >= 400 && response.status < 500)
-				return res.status(response.status).send(response.data);
-			else if (response.status >= 500)
-				return res.sendStatus(response.status);
+			const nextResp = await singleRequest(req, res,
+				"GET", userPlaylists.next);
+			if (!nextResp.success) return;
+			const nextData = nextResp.resp.data;
 
 			userPlaylists.items.push(
-				...nextResponse.data.items.map((playlist) => {
+				...nextData.items.map((playlist) => {
 					return {
 						uri: playlist.uri,
 						images: playlist.images,
@@ -66,7 +56,7 @@ const getUserPlaylists = async (req, res) => {
 				})
 			);
 
-			userPlaylists.next = nextResponse.data.next;
+			userPlaylists.next = nextData.next;
 		}
 
 		delete userPlaylists.next;
@@ -75,8 +65,9 @@ const getUserPlaylists = async (req, res) => {
 		logger.debug("Fetched user's playlists", { num: userPlaylists.total });
 		return;
 	} catch (error) {
+		res.sendStatus(500);
 		logger.error('getUserPlaylists', { error });
-		return res.sendStatus(500);
+		return;
 	}
 }
 
@@ -87,7 +78,7 @@ const getUserPlaylists = async (req, res) => {
  */
 const getPlaylistDetails = async (req, res) => {
 	try {
-		/** @type {typedefs.Playlist} */
+		/** @type {typedefs.PlaylistDetails} */
 		let playlist = {};
 		/** @type {typedefs.URIObject} */
 		let uri;
@@ -108,39 +99,36 @@ const getPlaylistDetails = async (req, res) => {
 			return;
 		}
 
-		const response = await axiosInstance.get(
+		const response = await singleRequest(req, res,
+			"GET",
 			`/playlists/${uri.id}/`,
 			{
 				params: {
 					fields: initialFields.join()
 				},
-				headers: req.sessHeaders
-			}
-		);
-		if (response.status >= 400 && response.status < 500)
-			return res.status(response.status).send(response.data);
-		else if (response.status >= 500)
-			return res.sendStatus(response.status);
+			});
+		if (!response.success) return;
+		const respData = response.resp.data;
 
 		// TODO: this whole section needs to be DRYer
 		// look into serializr
-		playlist.name = response.data.name;
-		playlist.description = response.data.description;
-		playlist.collaborative = response.data.collaborative;
-		playlist.public = response.data.public;
-		playlist.images = { ...response.data.images };
-		playlist.owner = { ...response.data.owner };
-		playlist.snapshot_id = response.data.snapshot_id;
-		playlist.total = response.data.tracks.total;
+		playlist.name = respData.name;
+		playlist.description = respData.description;
+		playlist.collaborative = respData.collaborative;
+		playlist.public = respData.public;
+		playlist.images = [...respData.images];
+		playlist.owner = { ...respData.owner };
+		playlist.snapshot_id = respData.snapshot_id;
+		playlist.total = respData.tracks.total;
 
 		// previous fields get carried over to the next URL, but most of these fields are not present in the new endpoint
 		// API shouldn't be returning such URLs, the problem's in the API ig...
-		if (response.data.tracks.next) {
-			playlist.next = new URL(response.data.tracks.next);
+		if (respData.tracks.next) {
+			playlist.next = new URL(respData.tracks.next);
 			playlist.next.searchParams.set("fields", mainFields.join());
 			playlist.next = playlist.next.href;
 		}
-		playlist.tracks = response.data.tracks.items.map((playlist_item) => {
+		playlist.tracks = respData.tracks.items.map((playlist_item) => {
 			return {
 				is_local: playlist_item.is_local,
 				track: {
@@ -154,18 +142,14 @@ const getPlaylistDetails = async (req, res) => {
 
 		// keep getting batches of 50 till exhausted
 		while (playlist.next) {
-			const nextResponse = await axiosInstance.get(
-				playlist.next, // absolute URL from previous response which has params
-				{ headers: req.sessHeaders }
-			);
-
-			if (nextResponse.status >= 400 && nextResponse.status < 500)
-				return res.status(nextResponse.status).send(nextResponse.data);
-			else if (nextResponse.status >= 500)
-				return res.sendStatus(nextResponse.status);
+			const nextResp = await singleRequest(req, res,
+				"GET", playlist.next
+			)
+			if (!nextResp.success) return;
+			const nextData = nextResp.resp.data;
 
 			playlist.tracks.push(
-				...nextResponse.data.items.map((playlist_item) => {
+				...nextData.items.map((playlist_item) => {
 					return {
 						is_local: playlist_item.is_local,
 						track: {
@@ -177,7 +161,7 @@ const getPlaylistDetails = async (req, res) => {
 				})
 			);
 
-			playlist.next = nextResponse.data.next;
+			playlist.next = nextData.next;
 		}
 
 		delete playlist.next;

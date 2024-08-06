@@ -6,27 +6,17 @@ const { colorize, combine, label, timestamp, printf, errors } = format;
 const typedefs = require("../typedefs");
 
 const getLabel = (callingModule) => {
-    const parts = callingModule.filename.split(path.sep);
+    if (!callingModule.filename) return "repl";
+    const parts = callingModule.filename?.split(path.sep);
     return path.join(parts[parts.length - 2], parts.pop());
 };
 
-const allowedErrorKeys = ["name", "message", "stack"];
-
-const logMetaReplacer = (key, value) => {
-    if (key === "error") {
-        return {
-            name: value.name,
-            message: value.message,
-            stack: value.stack,
-        };
-    }
-    return value;
-}
+const allowedErrorKeys = ["name", "code", "message", "stack"];
 
 const metaFormat = (meta) => {
     if (Object.keys(meta).length > 0)
-        return '\n' + JSON.stringify(meta, logMetaReplacer, "\t") + '\n';
-    return '\n';
+        return '\n' + JSON.stringify(meta, null, "\t");
+    return '';
 }
 
 const logFormat = printf(({ level, message, label, timestamp, ...meta }) => {
@@ -36,6 +26,9 @@ const logFormat = printf(({ level, message, label, timestamp, ...meta }) => {
                 delete meta.error[key];
             }
         }
+        const { stack, ...rest } = meta.error;
+        return `${timestamp} [${label}] ${level}: ${message}${metaFormat(rest)}\n` +
+            `${stack}`;
     }
     return `${timestamp} [${label}] ${level}: ${message}${metaFormat(meta)}`;
 });
@@ -46,12 +39,12 @@ const logFormat = printf(({ level, message, label, timestamp, ...meta }) => {
  * @returns {typedefs.Logger} 
  */
 const logger = (callingModule) => {
-    return createLogger({
+    let tmpLogger = createLogger({
         levels: config.npm.levels,
         format: combine(
             errors({ stack: true }),
             label({ label: getLabel(callingModule) }),
-            timestamp({ format: 'YYYY-MM-DD HH:mm:ss.SSS' }),
+            timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
             logFormat,
         ),
         transports: [
@@ -68,6 +61,8 @@ const logger = (callingModule) => {
             }),
         ]
     });
+    tmpLogger.on('error', (error) => tmpLogger.crit("Error inside logger", { error }));
+    return tmpLogger;
 }
 
 module.exports = logger;

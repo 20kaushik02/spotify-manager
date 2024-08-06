@@ -21,10 +21,12 @@ const validate = (req, res, next) => {
 		[err.path]: err.msg
 	}));
 
-	return res.status(400).json({
+	res.status(400).json({
 		message: getNestedValuesString(extractedErrors),
 		errors: extractedErrors
 	});
+	logger.warn("invalid request", { extractedErrors });
+	return;
 }
 
 module.exports = {

@@ -1,9 +1,10 @@
 const { authInstance, axiosInstance } = require("../utils/axios");
 
 const typedefs = require("../typedefs");
-const { scopes, stateKey, accountsAPIURL, sessionAgeInSeconds } = require('../constants');
+const { scopes, stateKey, accountsAPIURL, sessionAgeInSeconds, sessionName } = require('../constants');
 
 const generateRandString = require('../utils/generateRandString');
+const { singleRequest } = require("./apiCall");
 const logger = require('../utils/logger')(module);
 
 /**
@@ -17,7 +18,7 @@ const login = (_req, res) => {
 		res.cookie(stateKey, state);
 
 		const scope = Object.values(scopes).join(' ');
-		return res.redirect(
+		res.redirect(
 			`${accountsAPIURL}/authorize?` +
 			new URLSearchParams({
 				response_type: 'code',
@@ -27,9 +28,11 @@ const login = (_req, res) => {
 				state: state
 			}).toString()
 		);
+		return;
 	} catch (error) {
+		res.sendStatus(500);
 		logger.error('login', { error });
-		return res.sendStatus(500);
+		return;
 	}
 }
 
@@ -45,11 +48,13 @@ const callback = async (req, res) => {
 
 		// check state
 		if (state === null || state !== storedState) {
+			res.redirect(409, '/');
 			logger.error('state mismatch');
-			return res.redirect(409, '/');
+			return;
 		} else if (error) {
+			res.status(401).send("Auth callback error");
 			logger.error('callback error', { error });
-			return res.status(401).send("Auth callback error");
+			return;
 		} else {
 			// get auth tokens
 			res.clearCookie(stateKey);
@@ -65,7 +70,7 @@ const callback = async (req, res) => {
 			const tokenResponse = await authInstance.post('/api/token', authPayload);
 
 			if (tokenResponse.status === 200) {
-				logger.info('New login.');
+				logger.debug('Tokens obtained.');
 				req.session.accessToken = tokenResponse.data.access_token;
 				req.session.refreshToken = tokenResponse.data.refresh_token;
 				req.session.cookie.maxAge = 7 * 24 * 60 * 60 * 1000 // 1 week
@@ -74,30 +79,27 @@ const callback = async (req, res) => {
 				res.status(tokenResponse.status).send('Error: Login failed');
 			}
 
-			const userResponse = await axiosInstance.get(
-				"/me",
-				{
-					headers: {
-						'Authorization': `Bearer ${req.session.accessToken}`
-					}
-				}
+			const userResp = await singleRequest(req, res,
+				"GET", "/me",
+				{ headers: { Authorization: `Bearer ${req.session.accessToken}` } }
 			);
-			if (userResponse.status >= 400 && userResponse.status < 500)
-				return res.status(userResponse.status).send(userResponse.data);
-			else if (userResponse.status >= 500)
-				return res.sendStatus(userResponse.status);
+			if (!userResp.success) return;
+			const userData = userResp.resp.data;
 
 			/** @type {typedefs.User} */
 			req.session.user = {
-				username: userResponse.data.display_name,
-				id: userResponse.data.id,
+				username: userData.display_name,
+				id: userData.id,
 			};
 
-			return res.sendStatus(200);
+			res.sendStatus(200);
+			logger.info("New login.", { username: userData.display_name });
+			return;
 		}
 	} catch (error) {
+		res.sendStatus(500);
 		logger.error('callback', { error });
-		return res.sendStatus(500);
+		return;
 	}
 }
 
@@ -121,15 +123,18 @@ const refresh = async (req, res) => {
 			req.session.accessToken = response.data.access_token;
 			req.session.refreshToken = response.data.refresh_token ?? req.session.refreshToken; // refresh token rotation
 
+			res.sendStatus(200);
 			logger.info(`Access token refreshed${(response.data.refresh_token !== null) ? ' and refresh token updated' : ''}.`);
-			return res.sendStatus(200);
+			return;
 		} else {
+			res.status(response.status).send('Error: Refresh token flow failed.');
 			logger.error('refresh failed', { statusCode: response.status });
-			return res.status(response.status).send('Error: Refresh token flow failed.');
+			return;
 		}
 	} catch (error) {
+		res.sendStatus(500);
 		logger.error('refresh', { error });
-		return res.sendStatus(500);
+		return;
 	}
 };
 
@@ -142,17 +147,20 @@ const logout = async (req, res) => {
 	try {
 		const delSession = req.session.destroy((err) => {
 			if (err) {
+				res.sendStatus(500);
 				logger.error("Error while logging out", { err });
-				return res.sendStatus(500);
+				return;
 			} else {
+				res.clearCookie(sessionName);
+				res.sendStatus(200);
 				logger.info("Logged out.", { sessionID: delSession.id });
-				res.clearCookie("connect.sid");
-				return res.sendStatus(200);
+				return;
 			}
 		})
 	} catch (error) {
+		res.sendStatus(500);
 		logger.error('logout', { error });
-		return res.sendStatus(500);
+		return;
 	}
 }
 

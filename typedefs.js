@@ -5,9 +5,6 @@
  * @typedef {import('express').Response} Res
  * @typedef {import('express').NextFunction} Next
  * 
- * @typedef {import('axios').Method} AxiosMethod
- * @typedef {import('axios').AxiosRequestConfig} AxiosRequestConfig
- * 
  * @typedef {import("sequelize").Sequelize} Sequelize
  * @typedef {import("sequelize").Model} Model
  * @typedef {import("sequelize").QueryInterface} QueryInterface
@@ -25,7 +22,7 @@
  * }} URIObject
  * 
  * @typedef {{
- * display_name: string,
+ * username: string,
  * uri: string
  * }} User
  * 
@@ -70,7 +67,7 @@
  * owner: User,
  * images: ImageObject[],
  * tracks: PlaylistTrack[],
- * }} Playlist
+ * }} PlaylistDetails
  */
 
 exports.unused = {};
