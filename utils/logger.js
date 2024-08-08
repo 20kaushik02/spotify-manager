@@ -28,7 +28,7 @@ const logFormat = printf(({ level, message, label, timestamp, ...meta }) => {
         }
         const { stack, ...rest } = meta.error;
         return `${timestamp} [${label}] ${level}: ${message}${metaFormat(rest)}\n` +
-            `${stack}`;
+            `${stack ?? ''}`;
     }
     return `${timestamp} [${label}] ${level}: ${message}${metaFormat(meta)}`;
 });

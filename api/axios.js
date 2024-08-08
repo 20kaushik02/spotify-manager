@@ -1,7 +1,7 @@
 const axios = require('axios');
 
 const { baseAPIURL, accountsAPIURL } = require("../constants");
-const logger = require('./logger')(module);
+const logger = require('../utils/logger')(module);
 
 const authInstance = axios.default.create({
 	baseURL: accountsAPIURL,
@@ -38,7 +38,6 @@ axiosInstance.interceptors.response.use(
 				name: error.name,
 				code: error.code,
 				message: error.message,
-				stack: error.stack,
 			},
 			req: error.config,
 		});

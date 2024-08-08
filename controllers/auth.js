@@ -1,10 +1,10 @@
-const { authInstance, axiosInstance } = require("../utils/axios");
+const { authInstance } = require("../api/axios");
 
 const typedefs = require("../typedefs");
-const { scopes, stateKey, accountsAPIURL, sessionAgeInSeconds, sessionName } = require('../constants');
+const { scopes, stateKey, accountsAPIURL, sessionName } = require('../constants');
 
 const generateRandString = require('../utils/generateRandString');
-const { singleRequest } = require("./apiCall");
+const { getUserProfile } = require("../api/spotify");
 const logger = require('../utils/logger')(module);
 
 /**
@@ -79,12 +79,8 @@ const callback = async (req, res) => {
 				res.status(tokenResponse.status).send('Error: Login failed');
 			}
 
-			const userResp = await singleRequest(req, res,
-				"GET", "/me",
-				{ headers: { Authorization: `Bearer ${req.session.accessToken}` } }
-			);
-			if (!userResp.success) return;
-			const userData = userResp.resp.data;
+			const userData = await getUserProfile(req, res);
+			if (res.headersSent) return;
 
 			/** @type {typedefs.User} */
 			req.session.user = {

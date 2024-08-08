@@ -1,7 +1,7 @@
 const typedefs = require("../typedefs");
 const logger = require("../utils/logger")(module);
 
-const { singleRequest } = require("./apiCall");
+const { getUserPlaylistsFirstPage, getUserPlaylistsNextPage, getPlaylistDetailsFirstPage, getPlaylistDetailsNextPage, removeItemsFromPlaylist } = require("../api/spotify");
 const { parseSpotifyLink } = require("../utils/spotifyURITransformer");
 const myGraph = require("../utils/graph");
 
@@ -22,17 +22,8 @@ const updateUser = async (req, res) => {
 		const uID = req.session.user.id;
 
 		// get first 50
-		const response = await singleRequest(req, res,
-			"GET",
-			`/users/${uID}/playlists`,
-			{
-				params: {
-					offset: 0,
-					limit: 50,
-				},
-			});
-		if (!response.success) return;
-		const respData = response.resp.data;
+		const respData = await getUserPlaylistsFirstPage(req, res);
+		if (res.headersSent) return;
 
 		currentPlaylists = respData.items.map(playlist => {
 			return {
@@ -44,9 +35,8 @@ const updateUser = async (req, res) => {
 
 		// keep getting batches of 50 till exhausted
 		while (nextURL) {
-			const nextResp = await singleRequest(req, res, "GET", nextURL);
-			if (!nextResp.success) return;
-			const nextData = nextResp.resp.data;
+			const nextData = await getUserPlaylistsNextPage(req, res, nextURL);
+			if (res.headersSent) return;
 
 			currentPlaylists.push(
 				...nextData.items.map(playlist => {
@@ -193,7 +183,7 @@ const createLink = async (req, res) => {
 				return;
 			}
 		} catch (error) {
-			res.status(400).send({ message: "Invalid Spotify playlist link" });
+			res.status(400).send({ message: error.message });
 			logger.error("parseSpotifyLink", { error });
 			return;
 		}
@@ -283,7 +273,7 @@ const removeLink = async (req, res) => {
 				return;
 			}
 		} catch (error) {
-			res.status(400).send({ message: "Invalid Spotify playlist link" });
+			res.status(400).send({ message: error.message });
 			logger.error("parseSpotifyLink", { error });
 			return;
 		}
@@ -329,6 +319,7 @@ const removeLink = async (req, res) => {
 	}
 }
 
+
 /**
  * Add tracks to the link-head playlist,
  * that are present in the link-tail playlist but not in the link-head playlist,
@@ -349,21 +340,22 @@ const removeLink = async (req, res) => {
  * @param {typedefs.Req} req
  * @param {typedefs.Res} res
  */
-const populateMissingInLink = async (req, res) => {
+const populateSingleLink = async (req, res) => {
 	try {
+		let fromPl, toPl;
+		const link = { from: req.body.from, to: req.body.to };
 		const uID = req.session.user.id;
 
-		let fromPl, toPl;
 		try {
-			fromPl = parseSpotifyLink(req.body["from"]);
-			toPl = parseSpotifyLink(req.body["to"]);
+			fromPl = parseSpotifyLink(req.body.from);
+			toPl = parseSpotifyLink(req.body.to);
 			if (fromPl.type !== "playlist" || toPl.type !== "playlist") {
 				res.status(400).send({ message: "Link is not a playlist" });
-				logger.warn("non-playlist link provided", { from: fromPl, to: toPl });
+				logger.warn("non-playlist link provided", link);
 				return;
 			}
 		} catch (error) {
-			res.status(400).send({ message: "Invalid Spotify playlist link" });
+			res.status(400).send({ message: error.message });
 			logger.error("parseSpotifyLink", { error });
 			return;
 		}
@@ -380,47 +372,30 @@ const populateMissingInLink = async (req, res) => {
 		});
 		if (!existingLink) {
 			res.sendStatus(409);
-			logger.error("link does not exist");
+			logger.warn("link does not exist", { link });
 			return;
 		}
 
 		let checkFields = ["collaborative", "owner(id)"];
-
-		const checkResp = await singleRequest(req, res,
-			"GET",
-			`/playlists/${fromPl.id}/`,
-			{
-				params: {
-					fields: checkFields.join()
-				},
-			});
-		if (!checkResp.success) return;
-
-		const checkFromData = checkResp.resp.data;
+		const checkFromData = await getPlaylistDetailsFirstPage(req, res, checkFields.join(), fromPl.id);
+		if (res.headersSent) return;
 
 		// editable = collaborative || user is owner
 		if (checkFromData.collaborative !== true &&
 			checkFromData.owner.id !== uID) {
 			res.status(403).send({
-				message: "You cannot edit this playlist, you must be owner/playlist must be collaborative"
+				message: "You cannot edit this playlist, you must be owner/playlist must be collaborative",
+				playlistID: fromPl.id
 			});
-			logger.error("user cannot edit target playlist");
+			logger.warn("user cannot edit target playlist", { playlistID: fromPl.id });
 			return;
 		}
 
 		let initialFields = ["tracks(next,items(is_local,track(uri)))"];
 		let mainFields = ["next", "items(is_local,track(uri))"];
 
-		const fromResp = await singleRequest(req, res,
-			"GET",
-			`/playlists/${fromPl.id}/`,
-			{
-				params: {
-					fields: initialFields.join()
-				},
-			});
-		if (!fromResp.success) return;
-		const fromData = fromResp.resp.data;
+		const fromData = await getPlaylistDetailsFirstPage(req, res, initialFields.join(), fromPl.id);
+		if (res.headersSent) return;
 
 		let fromPlaylist = {};
 		// varying fields again smh
@@ -439,10 +414,8 @@ const populateMissingInLink = async (req, res) => {
 
 		// keep getting batches of 50 till exhausted
 		while (fromPlaylist.next) {
-			const nextResp = await singleRequest(req, res,
-				"GET", fromPlaylist.next);
-			if (!nextResp.success) return;
-			const nextData = nextResp.resp.data;
+			const nextData = await getPlaylistDetailsNextPage(req, res, fromPlaylist.next);
+			if (res.headersSent) return;
 
 			fromPlaylist.tracks.push(
 				...nextData.items.map((playlist_item) => {
@@ -458,16 +431,8 @@ const populateMissingInLink = async (req, res) => {
 
 		delete fromPlaylist.next;
 
-		const toResp = await singleRequest(req, res,
-			"GET",
-			`/playlists/${toPl.id}/`,
-			{
-				params: {
-					fields: initialFields.join()
-				},
-			});
-		if (!toResp.success) return;
-		const toData = toResp.resp.data;
+		const toData = await getPlaylistDetailsFirstPage(req, res, initialFields.join(), toPl.id);
+		if (res.headersSent) return;
 
 		let toPlaylist = {};
 		// varying fields again smh
@@ -485,10 +450,8 @@ const populateMissingInLink = async (req, res) => {
 
 		// keep getting batches of 50 till exhausted
 		while (toPlaylist.next) {
-			const nextResp = await singleRequest(req, res,
-				"GET", toPlaylist.next);
-			if (!nextResp.success) return;
-			const nextData = nextResp.resp.data;
+			const nextData = await getPlaylistDetailsNextPage(req, res, toPlaylist.next);
+			if (res.headersSent) return;
 			toPlaylist.tracks.push(
 				...nextData.items.map((playlist_item) => {
 					return {
@@ -509,26 +472,26 @@ const populateMissingInLink = async (req, res) => {
 			filter(track => !fromTrackURIs.includes(track.uri)). // only ones missing from the 'from' playlist
 			map(track => track.uri);
 
-		const logNum = toTrackURIs.length;
+		const toAddNum = toTrackURIs.length;
+		const localNum = toPlaylist.tracks.filter(track => track.is_local).length;
 
 		// append to end in batches of 100
 		while (toTrackURIs.length) {
 			const nextBatch = toTrackURIs.splice(0, 100);
-			const addResponse = await singleRequest(req, res,
-				"POST",
-				`/playlists/${fromPl.id}/tracks`,
-				{},
-				{ uris: nextBatch }, false
-			);
-			if (!addResponse.success) return;
+			const addData = await addItemsToPlaylist(req, res, nextBatch, fromPl.id);
+			if (res.headersSent) return;
 		}
 
-		res.status(200).send({ message: `Added ${logNum} tracks.` });
-		logger.info(`Backfilled ${logNum} tracks`);
+		res.status(201).send({
+			message: 'Added tracks.',
+			added: toAddNum,
+			local: localNum,
+		});
+		logger.info(`Backfilled ${result.added} tracks, could not add ${result.local} local files.`);
 		return;
 	} catch (error) {
 		res.sendStatus(500);
-		logger.error('populateMissingInLink', { error });
+		logger.error('populateSingleLink', { error });
 		return;
 	}
 }
@@ -545,12 +508,12 @@ const populateMissingInLink = async (req, res) => {
  * 
  * link from pl_a to pl_b exists
  * 
- * after pruneExcessInLink, pl_b will have tracks: b, c
+ * after pruneSingleLink, pl_b will have tracks: b, c
  * 
  * @param {typedefs.Req} req
  * @param {typedefs.Res} res
  */
-const pruneExcessInLink = async (req, res) => {
+const pruneSingleLink = async (req, res) => {
 	try {
 		const uID = req.session.user.id;
 
@@ -564,7 +527,7 @@ const pruneExcessInLink = async (req, res) => {
 				return
 			}
 		} catch (error) {
-			res.status(400).send({ message: "Invalid Spotify playlist link" });
+			res.status(400).send({ message: error.message });
 			logger.error("parseSpotifyLink", { error });
 			return;
 		}
@@ -587,23 +550,15 @@ const pruneExcessInLink = async (req, res) => {
 
 		let checkFields = ["collaborative", "owner(id)"];
 
-		const checkToResp = await singleRequest(req, res,
-			"GET",
-			`/playlists/${toPl.id}/`,
-			{
-				params: {
-					fields: checkFields.join()
-				},
-			});
-
-		if (!checkToResp.success) return;
-		const checkToData = checkToResp.resp.data;
+		const checkToData = await getPlaylistDetailsFirstPage(req, res, checkFields.join(), toPl.id);
+		if (res.headersSent) return;
 
 		// editable = collaborative || user is owner
 		if (checkToData.collaborative !== true &&
 			checkToData.owner.id !== uID) {
 			res.status(403).send({
-				message: "You cannot edit this playlist, you must be owner/playlist must be collaborative"
+				message: "You cannot edit this playlist, you must be owner/playlist must be collaborative",
+				playlistID: toPl.id
 			});
 			logger.error("user cannot edit target playlist");
 			return;
@@ -612,16 +567,8 @@ const pruneExcessInLink = async (req, res) => {
 		let initialFields = ["snapshot_id", "tracks(next,items(is_local,track(uri)))"];
 		let mainFields = ["next", "items(is_local,track(uri))"];
 
-		const fromResp = await singleRequest(req, res,
-			"GET",
-			`/playlists/${fromPl.id}/`,
-			{
-				params: {
-					fields: initialFields.join()
-				},
-			});
-		if (!fromResp.success) return;
-		const fromData = fromResp.resp.data;
+		const fromData = await getPlaylistDetailsFirstPage(req, res, initialFields.join(), fromPl.id);
+		if (res.headersSent) return;
 
 		let fromPlaylist = {};
 		// varying fields again smh
@@ -640,10 +587,8 @@ const pruneExcessInLink = async (req, res) => {
 
 		// keep getting batches of 50 till exhausted
 		while (fromPlaylist.next) {
-			const nextResp = await singleRequest(req, res,
-				"GET", fromPlaylist.next);
-			if (!nextResp.success) return;
-			const nextData = nextResp.resp.data;
+			const nextData = await getPlaylistDetailsNextPage(req, res, fromPlaylist.next);
+			if (res.headersSent) return;
 
 			fromPlaylist.tracks.push(
 				...nextData.items.map((playlist_item) => {
@@ -658,16 +603,10 @@ const pruneExcessInLink = async (req, res) => {
 		}
 
 		delete fromPlaylist.next;
-		const toResp = await singleRequest(req, res,
-			"GET",
-			`/playlists/${toPl.id}/`,
-			{
-				params: {
-					fields: initialFields.join()
-				},
-			});
-		if (!toResp.success) return;
-		const toData = toResp.resp.data;
+
+		const toData = await getPlaylistDetailsFirstPage(req, res, initialFields.join(), toPl.id);
+		if (res.headersSent) return;
+
 		let toPlaylist = {};
 		// varying fields again smh
 		toPlaylist.snapshot_id = toData.snapshot_id;
@@ -685,10 +624,8 @@ const pruneExcessInLink = async (req, res) => {
 
 		// keep getting batches of 50 till exhausted
 		while (toPlaylist.next) {
-			const nextResp = await singleRequest(req, res,
-				"GET", toPlaylist.next);
-			if (!nextResp.success) return;
-			const nextData = nextResp.resp.data;
+			const nextData = await getPlaylistDetailsNextPage(req, res, toPlaylist.next);
+			if (res.headersSent) return;
 
 			toPlaylist.tracks.push(
 				...nextData.items.map((playlist_item) => {
@@ -720,15 +657,9 @@ const pruneExcessInLink = async (req, res) => {
 		let currentSnapshot = toPlaylist.snapshot_id;
 		while (indexes.length) {
 			const nextBatch = indexes.splice(Math.max(indexes.length - 100, 0), 100);
-			const delResponse = await singleRequest(req, res,
-				"DELETE",
-				`/playlists/${toPl.id}/tracks`,
-				{},
-				// axios delete method doesn't have separate arg for body so hv to put it in config
-				{ positions: nextBatch, snapshot_id: currentSnapshot }, true
-			)
-			if (!delResponse.success) return;
-			currentSnapshot = delResponse.resp.data.snapshot_id;
+			const delResponse = await removeItemsFromPlaylist(req, res, nextBatch, toPl.id, currentSnapshot);
+			if (res.headersSent) return;
+			currentSnapshot = delResponse.snapshot_id;
 		}
 
 		res.status(200).send({ message: `Removed ${logNum} tracks.` });
@@ -736,7 +667,7 @@ const pruneExcessInLink = async (req, res) => {
 		return;
 	} catch (error) {
 		res.sendStatus(500);
-		logger.error('pruneExcessInLink', { error });
+		logger.error('pruneSingleLink', { error });
 		return;
 	}
 }
@@ -746,6 +677,6 @@ module.exports = {
 	fetchUser,
 	createLink,
 	removeLink,
-	populateMissingInLink,
-	pruneExcessInLink,
+	populateSingleLink,
+	pruneSingleLink,
 };

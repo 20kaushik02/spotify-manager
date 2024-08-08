@@ -32,7 +32,7 @@ class myGraph {
 	}
 
 	/**
-	 * @param {type} node
+	 * @param {string} node
 	 * @returns {string[]}
 	 */
 	getDirectHeads(node) {
@@ -40,7 +40,7 @@ class myGraph {
 	}
 
 	/**
-	 * @param {type} node
+	 * @param {string} node
 	 * @returns {string[]}
 	 */
 	getDirectTails(node) {

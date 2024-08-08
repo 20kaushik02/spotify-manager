@@ -1,7 +1,7 @@
 const logger = require("../utils/logger")(module);
 
 const typedefs = require("../typedefs");
-const { singleRequest } = require("./apiCall");
+const { getUserPlaylistsFirstPage, getUserPlaylistsNextPage, getPlaylistDetailsFirstPage, getPlaylistDetailsNextPage } = require("../api/spotify");
 const { parseSpotifyLink } = require("../utils/spotifyURITransformer");
 
 /**
@@ -9,22 +9,13 @@ const { parseSpotifyLink } = require("../utils/spotifyURITransformer");
  * @param {typedefs.Req} req
  * @param {typedefs.Res} res
  */
-const getUserPlaylists = async (req, res) => {
+const fetchUserPlaylists = async (req, res) => {
 	try {
 		let userPlaylists = {};
 
 		// get first 50
-		const response = await singleRequest(req, res,
-			"GET",
-			`/users/${req.session.user.id}/playlists`,
-			{
-				params: {
-					offset: 0,
-					limit: 100,
-				},
-			});
-		if (!response.success) return;
-		const respData = response.resp.data;
+		const respData = await getUserPlaylistsFirstPage(req, res);
+		if (res.headersSent) return;
 
 		userPlaylists.total = respData.total;
 
@@ -40,10 +31,8 @@ const getUserPlaylists = async (req, res) => {
 		userPlaylists.next = respData.next;
 		// keep getting batches of 50 till exhausted
 		while (userPlaylists.next) {
-			const nextResp = await singleRequest(req, res,
-				"GET", userPlaylists.next);
-			if (!nextResp.success) return;
-			const nextData = nextResp.resp.data;
+			const nextData = await getUserPlaylistsNextPage(req, res, userPlaylists.next);
+			if (res.headersSent) return;
 
 			userPlaylists.items.push(
 				...nextData.items.map((playlist) => {
@@ -66,7 +55,7 @@ const getUserPlaylists = async (req, res) => {
 		return;
 	} catch (error) {
 		res.sendStatus(500);
-		logger.error('getUserPlaylists', { error });
+		logger.error('fetchUserPlaylists', { error });
 		return;
 	}
 }
@@ -76,9 +65,8 @@ const getUserPlaylists = async (req, res) => {
  * @param {typedefs.Req} req 
  * @param {typedefs.Res} res 
  */
-const getPlaylistDetails = async (req, res) => {
+const fetchPlaylistDetails = async (req, res) => {
 	try {
-		/** @type {typedefs.PlaylistDetails} */
 		let playlist = {};
 		/** @type {typedefs.URIObject} */
 		let uri;
@@ -94,21 +82,13 @@ const getPlaylistDetails = async (req, res) => {
 				return;
 			}
 		} catch (error) {
-			res.status(400).send({ message: "Invalid Spotify playlist link" });
+			res.status(400).send({ message: error.message });
 			logger.error("parseSpotifyLink", { error });
 			return;
 		}
 
-		const response = await singleRequest(req, res,
-			"GET",
-			`/playlists/${uri.id}/`,
-			{
-				params: {
-					fields: initialFields.join()
-				},
-			});
-		if (!response.success) return;
-		const respData = response.resp.data;
+		const respData = await getPlaylistDetailsFirstPage(req, res, initialFields.join(), uri.id);
+		if (res.headersSent) return;
 
 		// TODO: this whole section needs to be DRYer
 		// look into serializr
@@ -142,11 +122,8 @@ const getPlaylistDetails = async (req, res) => {
 
 		// keep getting batches of 50 till exhausted
 		while (playlist.next) {
-			const nextResp = await singleRequest(req, res,
-				"GET", playlist.next
-			)
-			if (!nextResp.success) return;
-			const nextData = nextResp.resp.data;
+			const nextData = await getPlaylistDetailsNextPage(req, res, playlist.next);
+			if (res.headersSent) return;
 
 			playlist.tracks.push(
 				...nextData.items.map((playlist_item) => {
@@ -177,6 +154,6 @@ const getPlaylistDetails = async (req, res) => {
 }
 
 module.exports = {
-	getUserPlaylists,
-	getPlaylistDetails
+	fetchUserPlaylists,
+	fetchPlaylistDetails
 };

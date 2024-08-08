@@ -1,19 +1,19 @@
 const router = require('express').Router();
 
-const { getUserPlaylists, getPlaylistDetails } = require('../controllers/playlists');
+const { fetchUserPlaylists, fetchPlaylistDetails } = require('../controllers/playlists');
 const { getPlaylistDetailsValidator } = require('../validators/playlists');
 const { validate } = require("../validators");
 
 router.get(
 	"/me",
-	getUserPlaylists
+	fetchUserPlaylists
 );
 
 router.get(
 	"/details",
 	getPlaylistDetailsValidator,
 	validate,
-	getPlaylistDetails
+	fetchPlaylistDetails
 );
 
 module.exports = router;
