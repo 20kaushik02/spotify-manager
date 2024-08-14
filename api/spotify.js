@@ -118,6 +118,8 @@ const addItemsToPlaylist = async (req, res, nextBatch, playlistID) => {
 }
 
 const removeItemsFromPlaylist = async (req, res, nextBatch, playlistID, snapshotID) => {
+	// API doesn't document this kind of deletion via the 'positions' field
+	// but see here: https://github.com/spotipy-dev/spotipy/issues/95#issuecomment-2263634801
 	const response = await singleRequest(req, res,
 		"DELETE",
 		`/playlists/${playlistID}/tracks`,
