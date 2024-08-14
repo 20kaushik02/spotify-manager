@@ -1,8 +1,9 @@
 const { validationResult } = require("express-validator");
 
-const typedefs = require("../typedefs");
 const { getNestedValuesString } = require("../utils/jsonTransformer");
 const logger = require("../utils/logger")(module);
+
+const typedefs = require("../typedefs");
 
 /**
  * Refer: https://stackoverflow.com/questions/58848625/access-messages-in-express-validator
@@ -16,10 +17,21 @@ const validate = (req, res, next) => {
 	if (errors.isEmpty()) {
 		return next();
 	}
-	const extractedErrors = []
-	errors.array().map(err => extractedErrors.push({
-		[err.path]: err.msg
-	}));
+
+	const extractedErrors = [];
+	errors.array().forEach(err => {
+		if (err.type === 'alternative') {
+			err.nestedErrors.forEach(nestedErr => {
+				extractedErrors.push({
+					[nestedErr.path]: nestedErr.msg
+				});
+			});
+		} else if (err.type === 'field') {
+			extractedErrors.push({
+				[err.path]: err.msg
+			});
+		}
+	});
 
 	res.status(400).json({
 		message: getNestedValuesString(extractedErrors),
@@ -31,4 +43,4 @@ const validate = (req, res, next) => {
 
 module.exports = {
 	validate
-}
+};

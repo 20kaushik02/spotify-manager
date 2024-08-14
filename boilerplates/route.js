@@ -1,6 +1,6 @@
 const router = require('express').Router();
 
-const validator = require("../validators");
+const { validate } = require("../validators");
 
 router.get(
 

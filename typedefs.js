@@ -5,12 +5,6 @@
  * @typedef {import('express').Response} Res
  * @typedef {import('express').NextFunction} Next
  * 
- * @typedef {import("sequelize").Sequelize} Sequelize
- * @typedef {import("sequelize").Model} Model
- * @typedef {import("sequelize").QueryInterface} QueryInterface
- * 
- * @typedef {import('winston').Logger} Logger
- * 
  * @typedef {{
  * type: string,
  * is_local: boolean,

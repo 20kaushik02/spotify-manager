@@ -7,10 +7,11 @@ const session = require("express-session");
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
 const helmet = require("helmet");
-
 const SQLiteStore = require("connect-sqlite3")(session);
-const db = require("./models");
+
 const { sessionName } = require('./constants');
+const db = require("./models");
+
 const { isAuthenticated } = require('./middleware/authCheck');
 
 const logger = require("./utils/logger")(module);
@@ -40,12 +41,10 @@ app.use(session({
 }));
 
 app.use(cors());
-app.use(cookieParser());
-
-// Configure helmet
 app.use(helmet());
-app.disable('x-powered-by')
+app.disable('x-powered-by');
 
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -58,13 +57,15 @@ app.use("/api/playlists", isAuthenticated, require("./routes/playlists"));
 app.use("/api/operations", isAuthenticated, require("./routes/operations"));
 
 // Fallbacks
-app.use((_req, res) => {
-	return res.status(404).send(
+app.use((req, res) => {
+	res.status(404).send(
 		"Guess the <a href=\"https://github.com/20kaushik02/spotify-manager\">cat's</a> out of the bag!"
 	);
+	logger.info("Unrecognized URL", { url: req.url });
+	return;
 });
 
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 5000;
 
 const server = app.listen(port, () => {
 	logger.info(`App Listening on port ${port}`);

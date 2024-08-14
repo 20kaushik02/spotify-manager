@@ -1,7 +1,7 @@
 const path = require("path");
 
 const { createLogger, transports, config, format } = require('winston');
-const { colorize, combine, label, timestamp, printf, errors } = format;
+const { combine, label, timestamp, printf, errors } = format;
 
 const typedefs = require("../typedefs");
 
@@ -36,10 +36,9 @@ const logFormat = printf(({ level, message, label, timestamp, ...meta }) => {
 /**
  * Creates a curried function, and call it with the module in use to get logs with filename
  * @param {typedefs.Module} callingModule The module from which the logger is called
- * @returns {typedefs.Logger} 
  */
-const logger = (callingModule) => {
-    let tmpLogger = createLogger({
+const curriedLogger = (callingModule) => {
+    let winstonLogger = createLogger({
         levels: config.npm.levels,
         format: combine(
             errors({ stack: true }),
@@ -48,7 +47,7 @@ const logger = (callingModule) => {
             logFormat,
         ),
         transports: [
-            new transports.Console({ level: 'debug' }),
+            new transports.Console({ level: 'info' }),
             new transports.File({
                 filename: __dirname + '/../logs/debug.log',
                 level: 'debug',
@@ -57,12 +56,12 @@ const logger = (callingModule) => {
             new transports.File({
                 filename: __dirname + '/../logs/error.log',
                 level: 'error',
-                maxsize: 10485760,
+                maxsize: 1048576,
             }),
         ]
     });
-    tmpLogger.on('error', (error) => tmpLogger.crit("Error inside logger", { error }));
-    return tmpLogger;
+    winstonLogger.on('error', (error) => winstonLogger.error("Error inside logger", { error }));
+    return winstonLogger;
 }
 
-module.exports = logger;
+module.exports = curriedLogger;
