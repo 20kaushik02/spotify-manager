@@ -26,7 +26,7 @@
     "express": "^4.21.1",
     "express-session": "^1.18.1",
     "express-validator": "^7.2.0",
-    "helmet": "^7.1.0",
+    "helmet": "^7.2.0",
     "pg": "^8.13.0",
     "sequelize": "^6.37.3",
     "serializr": "^3.0.2",
