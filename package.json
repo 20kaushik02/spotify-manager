@@ -27,8 +27,8 @@
     "express-session": "^1.18.1",
     "express-validator": "^7.2.0",
     "helmet": "^7.2.0",
-    "pg": "^8.13.0",
     "sequelize": "^6.37.5",
+    "pg": "^8.13.1",
     "serializr": "^3.0.3",
     "winston": "^3.15.0"
   },
