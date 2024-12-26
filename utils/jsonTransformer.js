@@ -5,7 +5,7 @@
  * @param {string} delimiter Delimiter of final string
  * @returns {string}
  */
-const getNestedValuesString = (obj, delimiter = ', ') => {
+const getNestedValuesString = (obj, delimiter = ", ") => {
 	let values = [];
 	for (key in obj) {
 		if (typeof obj[key] !== "object") {

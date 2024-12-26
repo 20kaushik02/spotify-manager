@@ -1,7 +1,7 @@
-const router = require('express').Router();
+const router = require("express").Router();
 
-const { fetchUserPlaylists, fetchPlaylistDetails } = require('../controllers/playlists');
-const { getPlaylistDetailsValidator } = require('../validators/playlists');
+const { fetchUserPlaylists, fetchPlaylistDetails } = require("../controllers/playlists");
+const { getPlaylistDetailsValidator } = require("../validators/playlists");
 const { validate } = require("../validators");
 
 router.get(

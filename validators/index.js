@@ -20,13 +20,13 @@ const validate = (req, res, next) => {
 
 	const extractedErrors = [];
 	errors.array().forEach(err => {
-		if (err.type === 'alternative') {
+		if (err.type === "alternative") {
 			err.nestedErrors.forEach(nestedErr => {
 				extractedErrors.push({
 					[nestedErr.path]: nestedErr.msg
 				});
 			});
-		} else if (err.type === 'field') {
+		} else if (err.type === "field") {
 			extractedErrors.push({
 				[err.path]: err.msg
 			});

@@ -1,8 +1,8 @@
-const router = require('express').Router();
+const router = require("express").Router();
 
-const { updateUser, fetchUser, createLink, removeLink, populateSingleLink, pruneSingleLink } = require('../controllers/operations');
-const { validate } = require('../validators');
-const { createLinkValidator, removeLinkValidator, populateSingleLinkValidator, pruneSingleLinkValidator } = require('../validators/operations');
+const { updateUser, fetchUser, createLink, removeLink, populateSingleLink, pruneSingleLink } = require("../controllers/operations");
+const { validate } = require("../validators");
+const { createLinkValidator, removeLinkValidator, populateSingleLinkValidator, pruneSingleLinkValidator } = require("../validators/operations");
 
 router.put(
 	"/update",

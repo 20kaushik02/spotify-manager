@@ -8,7 +8,7 @@ Personal Spotify playlist manager. Features inbound!
   - stores links as from-to pairs
   - fetches all playlists and links of the user into memory and then works with data. assumption is graphs won't be too big
 
-## to-do:
+## to-do
 
 - re-evaluate all logging
 - DRY all the API calls and surrounding processing

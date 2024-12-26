@@ -27,8 +27,8 @@ const parseSpotifyURI = (uri) => {
 		}
 
 		// URL decode artist, album, and title
-		const artist = decodeURIComponent(idParts[0] || '');
-		const album = decodeURIComponent(idParts[1] || '');
+		const artist = decodeURIComponent(idParts[0] || "");
+		const album = decodeURIComponent(idParts[1] || "");
 		const title = decodeURIComponent(idParts[2]);
 		const duration = parseInt(idParts[3], 10);
 
@@ -71,8 +71,8 @@ const parseSpotifyLink = (link) => {
 		}
 
 		// URL decode artist, album, and title
-		const artist = decodeURIComponent(matches[1] || '');
-		const album = decodeURIComponent(matches[2] || '');
+		const artist = decodeURIComponent(matches[1] || "");
+		const album = decodeURIComponent(matches[2] || "");
 		const title = decodeURIComponent(matches[3]);
 		const duration = parseInt(matches[4], 10);
 
@@ -108,10 +108,10 @@ const parseSpotifyLink = (link) => {
  */
 const buildSpotifyURI = (uriObj) => {
 	if (uriObj.is_local) {
-		const artist = encodeURIComponent(uriObj.artist ?? '');
-		const album = encodeURIComponent(uriObj.album ?? '');
-		const title = encodeURIComponent(uriObj.title ?? '');
-		const duration = uriObj.duration ? uriObj.duration.toString() : '';
+		const artist = encodeURIComponent(uriObj.artist ?? "");
+		const album = encodeURIComponent(uriObj.album ?? "");
+		const title = encodeURIComponent(uriObj.title ?? "");
+		const duration = uriObj.duration ? uriObj.duration.toString() : "";
 		return `spotify:local:${artist}:${album}:${title}:${duration}`;
 	}
 	return `spotify:${uriObj.type}:${uriObj.id}`;
@@ -124,10 +124,10 @@ const buildSpotifyURI = (uriObj) => {
  */
 const buildSpotifyLink = (uriObj) => {
 	if (uriObj.is_local) {
-		const artist = encodeURIComponent(uriObj.artist ?? '');
-		const album = encodeURIComponent(uriObj.album ?? '');
-		const title = encodeURIComponent(uriObj.title ?? '');
-		const duration = uriObj.duration ? uriObj.duration.toString() : '';
+		const artist = encodeURIComponent(uriObj.artist ?? "");
+		const album = encodeURIComponent(uriObj.album ?? "");
+		const title = encodeURIComponent(uriObj.title ?? "");
+		const duration = uriObj.duration ? uriObj.duration.toString() : "";
 		return `https://open.spotify.com/local/${artist}/${album}/${title}/${duration}`;
 	}
 	return `https://open.spotify.com/${uriObj.type}/${uriObj.id}`

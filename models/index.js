@@ -20,7 +20,7 @@ if (config.use_env_variable) {
 		await sequelize.authenticate();
 		logger.info("Sequelize auth success");
 	} catch (error) {
-		logger.error("Sequelize auth error", { err });
+		logger.error("Sequelize auth error", { error });
 		throw error;
 	}
 })();

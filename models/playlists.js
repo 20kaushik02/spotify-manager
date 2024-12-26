@@ -1,7 +1,7 @@
-'use strict';
+"use strict";
 const {
   Model
-} = require('sequelize');
+} = require("sequelize");
 module.exports = (sequelize, DataTypes) => {
   class playlists extends Model {
     /**
@@ -19,7 +19,7 @@ module.exports = (sequelize, DataTypes) => {
     userID: DataTypes.STRING
   }, {
     sequelize,
-    modelName: 'playlists',
+    modelName: "playlists",
   });
   return playlists;
 };

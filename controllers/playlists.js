@@ -51,11 +51,11 @@ const fetchUserPlaylists = async (req, res) => {
 		delete userPlaylists.next;
 
 		res.status(200).send(userPlaylists);
-		logger.debug("Fetched user's playlists", { num: userPlaylists.total });
+		logger.info("Fetched user playlists", { num: userPlaylists.total });
 		return;
 	} catch (error) {
 		res.sendStatus(500);
-		logger.error('fetchUserPlaylists', { error });
+		logger.error("fetchUserPlaylists", { error });
 		return;
 	}
 }
@@ -148,7 +148,7 @@ const fetchPlaylistDetails = async (req, res) => {
 		return;
 	} catch (error) {
 		res.sendStatus(500);
-		logger.error('getPlaylistDetails', { error });
+		logger.error("getPlaylistDetails", { error });
 		return;
 	}
 }

@@ -1,11 +1,11 @@
 const { authInstance } = require("../api/axios");
 
 const typedefs = require("../typedefs");
-const { scopes, stateKey, accountsAPIURL, sessionName } = require('../constants');
+const { scopes, stateKey, accountsAPIURL, sessionName } = require("../constants");
 
-const generateRandString = require('../utils/generateRandString');
+const generateRandString = require("../utils/generateRandString");
 const { getUserProfile } = require("../api/spotify");
-const logger = require('../utils/logger')(module);
+const logger = require("../utils/logger")(module);
 
 /**
  * Stateful redirect to Spotify login with credentials
@@ -17,11 +17,11 @@ const login = (_req, res) => {
 		const state = generateRandString(16);
 		res.cookie(stateKey, state);
 
-		const scope = Object.values(scopes).join(' ');
+		const scope = Object.values(scopes).join(" ");
 		res.redirect(
 			`${accountsAPIURL}/authorize?` +
 			new URLSearchParams({
-				response_type: 'code',
+				response_type: "code",
 				client_id: process.env.CLIENT_ID,
 				scope: scope,
 				redirect_uri: process.env.REDIRECT_URI,
@@ -31,7 +31,7 @@ const login = (_req, res) => {
 		return;
 	} catch (error) {
 		res.sendStatus(500);
-		logger.error('login', { error });
+		logger.error("login", { error });
 		return;
 	}
 }
@@ -48,12 +48,12 @@ const callback = async (req, res) => {
 
 		// check state
 		if (state === null || state !== storedState) {
-			res.redirect(409, '/');
-			logger.error('state mismatch');
+			res.redirect(409, "/");
+			logger.error("state mismatch");
 			return;
 		} else if (error) {
 			res.status(401).send("Auth callback error");
-			logger.error('callback error', { error });
+			logger.error("callback error", { error });
 			return;
 		} else {
 			// get auth tokens
@@ -62,21 +62,21 @@ const callback = async (req, res) => {
 			const authForm = {
 				code: code,
 				redirect_uri: process.env.REDIRECT_URI,
-				grant_type: 'authorization_code'
+				grant_type: "authorization_code"
 			}
 
 			const authPayload = (new URLSearchParams(authForm)).toString();
 
-			const tokenResponse = await authInstance.post('/api/token', authPayload);
+			const tokenResponse = await authInstance.post("/api/token", authPayload);
 
 			if (tokenResponse.status === 200) {
-				logger.debug('Tokens obtained.');
+				logger.debug("Tokens obtained.");
 				req.session.accessToken = tokenResponse.data.access_token;
 				req.session.refreshToken = tokenResponse.data.refresh_token;
 				req.session.cookie.maxAge = 7 * 24 * 60 * 60 * 1000 // 1 week
 			} else {
-				logger.error('login failed', { statusCode: tokenResponse.status });
-				res.status(tokenResponse.status).send('Error: Login failed');
+				logger.error("login failed", { statusCode: tokenResponse.status });
+				res.status(tokenResponse.status).send("Error: Login failed");
 			}
 
 			const userData = await getUserProfile(req, res);
@@ -94,7 +94,7 @@ const callback = async (req, res) => {
 		}
 	} catch (error) {
 		res.sendStatus(500);
-		logger.error('callback', { error });
+		logger.error("callback", { error });
 		return;
 	}
 }
@@ -108,28 +108,28 @@ const refresh = async (req, res) => {
 	try {
 		const authForm = {
 			refresh_token: req.session.refreshToken,
-			grant_type: 'refresh_token',
+			grant_type: "refresh_token",
 		}
 
 		const authPayload = (new URLSearchParams(authForm)).toString();
 
-		const response = await authInstance.post('/api/token', authPayload);
+		const response = await authInstance.post("/api/token", authPayload);
 
 		if (response.status === 200) {
 			req.session.accessToken = response.data.access_token;
 			req.session.refreshToken = response.data.refresh_token ?? req.session.refreshToken; // refresh token rotation
 
 			res.sendStatus(200);
-			logger.info(`Access token refreshed${(response.data.refresh_token !== null) ? ' and refresh token updated' : ''}.`);
+			logger.info(`Access token refreshed${(response.data.refresh_token !== null) ? " and refresh token updated" : ""}.`);
 			return;
 		} else {
-			res.status(response.status).send('Error: Refresh token flow failed.');
-			logger.error('refresh failed', { statusCode: response.status });
+			res.status(response.status).send("Error: Refresh token flow failed.");
+			logger.error("refresh failed", { statusCode: response.status });
 			return;
 		}
 	} catch (error) {
 		res.sendStatus(500);
-		logger.error('refresh', { error });
+		logger.error("refresh", { error });
 		return;
 	}
 };
@@ -155,7 +155,7 @@ const logout = async (req, res) => {
 		})
 	} catch (error) {
 		res.sendStatus(500);
-		logger.error('logout', { error });
+		logger.error("logout", { error });
 		return;
 	}
 }

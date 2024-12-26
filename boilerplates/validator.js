@@ -8,9 +8,9 @@ const typedefs = require("../typedefs");
  * @param {typedefs.Next} next 
  */
 const __validator_func = async (req, res, next) => {
-	await body('field_name')
+	await body("field_name")
 		.notEmpty()
-		.withMessage('field_name not defined in body')
+		.withMessage("field_name not defined in body")
 		.run(req);
 
 	next();

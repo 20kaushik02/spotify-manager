@@ -11,9 +11,9 @@ const logPrefix = "Spotify API: ";
  * Spotify API - one-off request handler
  * @param {typedefs.Req} req convenient auto-placing headers from middleware (not a good approach?)
  * @param {typedefs.Res} res handle failure responses here itself (not a good approach?)
- * @param {import('axios').Method} method HTTP method
+ * @param {import("axios").Method} method HTTP method
  * @param {string} path request path
- * @param {import('axios').AxiosRequestConfig} config request params, headers, etc.
+ * @param {import("axios").AxiosRequestConfig} config request params, headers, etc.
  * @param {any} data request body
  * @param {boolean} inlineData true if data is to be placed inside config
  */
@@ -36,7 +36,7 @@ const singleRequest = async (req, res, method, path, config = {}, data = null, i
 			let logMsg;
 			if (error.response.status >= 400 && error.response.status < 600) {
 				res.status(error.response.status).send(error.response.data);
-				logMsg = '' + error.response.status
+				logMsg = "" + error.response.status
 			}
 			else {
 				res.sendStatus(error.response.status);
@@ -130,6 +130,27 @@ const removeItemsFromPlaylist = async (req, res, nextBatch, playlistID, snapshot
 	return res.headersSent ? null : response.data;
 }
 
+const checkPlaylistEditable = async (req, res, playlistID, userID) => {
+	let checkFields = ["collaborative", "owner(id)"];
+
+	const checkFromData = await getPlaylistDetailsFirstPage(req, res, checkFields.join(), playlistID);
+	if (res.headersSent) return false;
+
+	// https://web.archive.org/web/20241226081630/https://developer.spotify.com/documentation/web-api/concepts/playlists#:~:text=A%20playlist%20can%20also%20be%20made%20collaborative
+	// playlist is editable if it's collaborative (and thus private) or owned by the user
+	if (checkFromData.collaborative !== true &&
+		checkFromData.owner.id !== userID) {
+		res.status(403).send({
+			message: "You cannot edit this playlist, you must be the owner/the playlist must be collaborative",
+			playlistID: playlistID
+		});
+		logger.warn("user cannot edit target playlist", { playlistID: playlistID });
+		return false;
+	} else {
+		return true;
+	}
+}
+
 module.exports = {
 	singleRequest,
 	getUserProfile,
@@ -139,4 +160,5 @@ module.exports = {
 	getPlaylistDetailsNextPage,
 	addItemsToPlaylist,
 	removeItemsFromPlaylist,
+	checkPlaylistEditable,
 }

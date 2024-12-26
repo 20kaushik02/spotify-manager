@@ -11,8 +11,8 @@ const logger = require("../utils/logger")(module);
 const isAuthenticated = (req, res, next) => {
 	if (req.session.accessToken) {
 		req.sessHeaders = {
-			'Authorization': `Bearer ${req.session.accessToken}`,
-			// 'X-RateLimit-SessID': `${req.sessionID}_${req.session.user.username}`
+			"Authorization": `Bearer ${req.session.accessToken}`,
+			// "X-RateLimit-SessID": `${req.sessionID}_${req.session.user.username}`
 		};
 		next();
 	} else {

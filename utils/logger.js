@@ -1,6 +1,6 @@
 const path = require("path");
 
-const { createLogger, transports, config, format } = require('winston');
+const { createLogger, transports, config, format } = require("winston");
 const { combine, label, timestamp, printf, errors } = format;
 
 const typedefs = require("../typedefs");
@@ -15,8 +15,8 @@ const allowedErrorKeys = ["name", "code", "message", "stack"];
 
 const metaFormat = (meta) => {
     if (Object.keys(meta).length > 0)
-        return '\n' + JSON.stringify(meta, null, "\t");
-    return '';
+        return "\n" + JSON.stringify(meta, null, "\t");
+    return "";
 }
 
 const logFormat = printf(({ level, message, label, timestamp, ...meta }) => {
@@ -28,7 +28,7 @@ const logFormat = printf(({ level, message, label, timestamp, ...meta }) => {
         }
         const { stack, ...rest } = meta.error;
         return `${timestamp} [${label}] ${level}: ${message}${metaFormat(rest)}\n` +
-            `${stack ?? ''}`;
+            `${stack ?? ""}`;
     }
     return `${timestamp} [${label}] ${level}: ${message}${metaFormat(meta)}`;
 });
@@ -43,24 +43,24 @@ const curriedLogger = (callingModule) => {
         format: combine(
             errors({ stack: true }),
             label({ label: getLabel(callingModule) }),
-            timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+            timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
             logFormat,
         ),
         transports: [
-            new transports.Console({ level: 'info' }),
+            new transports.Console({ level: "info" }),
             new transports.File({
-                filename: __dirname + '/../logs/debug.log',
-                level: 'debug',
+                filename: __dirname + "/../logs/debug.log",
+                level: "debug",
                 maxsize: 10485760,
             }),
             new transports.File({
-                filename: __dirname + '/../logs/error.log',
-                level: 'error',
+                filename: __dirname + "/../logs/error.log",
+                level: "error",
                 maxsize: 1048576,
             }),
         ]
     });
-    winstonLogger.on('error', (error) => winstonLogger.error("Error inside logger", { error }));
+    winstonLogger.on("error", (error) => winstonLogger.error("Error inside logger", { error }));
     return winstonLogger;
 }
 

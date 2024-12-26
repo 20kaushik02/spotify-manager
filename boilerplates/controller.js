@@ -11,7 +11,7 @@ const __controller_func = async (req, res) => {
 
 	} catch (error) {
 		res.sendStatus(500);
-		logger.error('__controller_func', { error });
+		logger.error("__controller_func", { error });
 		return;
 	}
 }

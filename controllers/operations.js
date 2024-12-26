@@ -1,7 +1,7 @@
 const typedefs = require("../typedefs");
 const logger = require("../utils/logger")(module);
 
-const { getUserPlaylistsFirstPage, getUserPlaylistsNextPage, getPlaylistDetailsFirstPage, getPlaylistDetailsNextPage, removeItemsFromPlaylist } = require("../api/spotify");
+const { getUserPlaylistsFirstPage, getUserPlaylistsNextPage, getPlaylistDetailsFirstPage, getPlaylistDetailsNextPage, addItemsToPlaylist, removeItemsFromPlaylist, checkPlaylistEditable } = require("../api/spotify");
 const { parseSpotifyLink } = require("../utils/spotifyURITransformer");
 const myGraph = require("../utils/graph");
 
@@ -115,12 +115,12 @@ const updateUser = async (req, res) => {
 			}
 		}
 
-		res.status(200).send({ removedLinks });
+		res.status(200).send({ removedLinks: removedLinks > 0 });
 		logger.info("Updated user data", { delLinks: removedLinks, delPls: cleanedUser, addPls: updatedUser.length });
 		return;
 	} catch (error) {
 		res.sendStatus(500);
-		logger.error('updateUser', { error });
+		logger.error("updateUser", { error });
 		return;
 	}
 }
@@ -158,7 +158,7 @@ const fetchUser = async (req, res) => {
 		return;
 	} catch (error) {
 		res.sendStatus(500);
-		logger.error('fetchUser', { error });
+		logger.error("fetchUser", { error });
 		return;
 	}
 }
@@ -248,7 +248,7 @@ const createLink = async (req, res) => {
 		return;
 	} catch (error) {
 		res.sendStatus(500);
-		logger.error('createLink', { error });
+		logger.error("createLink", { error });
 		return;
 	}
 }
@@ -314,11 +314,10 @@ const removeLink = async (req, res) => {
 		return;
 	} catch (error) {
 		res.sendStatus(500);
-		logger.error('removeLink', { error });
+		logger.error("removeLink", { error });
 		return;
 	}
 }
-
 
 /**
  * Add tracks to the link-head playlist,
@@ -376,20 +375,8 @@ const populateSingleLink = async (req, res) => {
 			return;
 		}
 
-		let checkFields = ["collaborative", "owner(id)"];
-		const checkFromData = await getPlaylistDetailsFirstPage(req, res, checkFields.join(), fromPl.id);
-		if (res.headersSent) return;
-
-		// editable = collaborative || user is owner
-		if (checkFromData.collaborative !== true &&
-			checkFromData.owner.id !== uID) {
-			res.status(403).send({
-				message: "You cannot edit this playlist, you must be owner/playlist must be collaborative",
-				playlistID: fromPl.id
-			});
-			logger.warn("user cannot edit target playlist", { playlistID: fromPl.id });
+		if (!await checkPlaylistEditable(req, res, fromPl.id, uID))
 			return;
-		}
 
 		let initialFields = ["tracks(next,items(is_local,track(uri)))"];
 		let mainFields = ["next", "items(is_local,track(uri))"];
@@ -413,7 +400,7 @@ const populateSingleLink = async (req, res) => {
 
 
 		// keep getting batches of 50 till exhausted
-		while (fromPlaylist.next) {
+		for (let i = 1; "next" in fromPlaylist; i++) {
 			const nextData = await getPlaylistDetailsNextPage(req, res, fromPlaylist.next);
 			if (res.headersSent) return;
 
@@ -449,9 +436,10 @@ const populateSingleLink = async (req, res) => {
 		});
 
 		// keep getting batches of 50 till exhausted
-		while (toPlaylist.next) {
+		for (let i = 1; "next" in toPlaylist; i++) {
 			const nextData = await getPlaylistDetailsNextPage(req, res, toPlaylist.next);
 			if (res.headersSent) return;
+
 			toPlaylist.tracks.push(
 				...nextData.items.map((playlist_item) => {
 					return {
@@ -476,22 +464,22 @@ const populateSingleLink = async (req, res) => {
 		const localNum = toPlaylist.tracks.filter(track => track.is_local).length;
 
 		// append to end in batches of 100
-		while (toTrackURIs.length) {
+		while (toTrackURIs.length > 0) {
 			const nextBatch = toTrackURIs.splice(0, 100);
 			const addData = await addItemsToPlaylist(req, res, nextBatch, fromPl.id);
 			if (res.headersSent) return;
 		}
 
 		res.status(201).send({
-			message: 'Added tracks.',
+			message: `Added ${toAddNum} tracks, could not add ${localNum} local files.`,
 			added: toAddNum,
 			local: localNum,
 		});
-		logger.info(`Backfilled ${result.added} tracks, could not add ${result.local} local files.`);
+		logger.info(`Backfilled ${toAddNum} tracks, could not add ${localNum} local files.`);
 		return;
 	} catch (error) {
 		res.sendStatus(500);
-		logger.error('populateSingleLink', { error });
+		logger.error("populateSingleLink", { error });
 		return;
 	}
 }
@@ -548,21 +536,8 @@ const pruneSingleLink = async (req, res) => {
 			return
 		}
 
-		let checkFields = ["collaborative", "owner(id)"];
-
-		const checkToData = await getPlaylistDetailsFirstPage(req, res, checkFields.join(), toPl.id);
-		if (res.headersSent) return;
-
-		// editable = collaborative || user is owner
-		if (checkToData.collaborative !== true &&
-			checkToData.owner.id !== uID) {
-			res.status(403).send({
-				message: "You cannot edit this playlist, you must be owner/playlist must be collaborative",
-				playlistID: toPl.id
-			});
-			logger.error("user cannot edit target playlist");
+		if (!await checkPlaylistEditable(req, res, toPl.id, uID))
 			return;
-		}
 
 		let initialFields = ["snapshot_id", "tracks(next,items(is_local,track(uri)))"];
 		let mainFields = ["next", "items(is_local,track(uri))"];
@@ -586,7 +561,7 @@ const pruneSingleLink = async (req, res) => {
 		});
 
 		// keep getting batches of 50 till exhausted
-		while (fromPlaylist.next) {
+		for (let i = 1; "next" in fromPlaylist; i++) {
 			const nextData = await getPlaylistDetailsNextPage(req, res, fromPlaylist.next);
 			if (res.headersSent) return;
 
@@ -623,7 +598,7 @@ const pruneSingleLink = async (req, res) => {
 		});
 
 		// keep getting batches of 50 till exhausted
-		while (toPlaylist.next) {
+		for (let i = 1; "next" in toPlaylist; i++) {
 			const nextData = await getPlaylistDetailsNextPage(req, res, toPlaylist.next);
 			if (res.headersSent) return;
 
@@ -651,7 +626,7 @@ const pruneSingleLink = async (req, res) => {
 		let indexes = indexedToTrackURIs.filter(track => !fromTrackURIs.includes(track.uri)); // only those missing from the 'from' playlist
 		indexes = indexes.map(track => track.position); // get track positions
 
-		const logNum = indexes.length;
+		const toDelNum = indexes.length;
 
 		// remove in batches of 100 (from reverse, to preserve positions while modifying)
 		let currentSnapshot = toPlaylist.snapshot_id;
@@ -662,12 +637,12 @@ const pruneSingleLink = async (req, res) => {
 			currentSnapshot = delResponse.snapshot_id;
 		}
 
-		res.status(200).send({ message: `Removed ${logNum} tracks.` });
-		logger.info(`Pruned ${logNum} tracks`);
+		res.status(200).send({ message: `Removed ${toDelNum} tracks.` });
+		logger.info(`Pruned ${toDelNum} tracks`);
 		return;
 	} catch (error) {
 		res.sendStatus(500);
-		logger.error('pruneSingleLink', { error });
+		logger.error("pruneSingleLink", { error });
 		return;
 	}
 }

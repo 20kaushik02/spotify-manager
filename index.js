@@ -1,25 +1,25 @@
-require('dotenv-flow').config();
+require("dotenv-flow").config();
 
-const util = require('util');
-const express = require('express');
+const util = require("util");
+const express = require("express");
 const session = require("express-session");
 
-const cors = require('cors');
-const cookieParser = require('cookie-parser');
+const cors = require("cors");
+const cookieParser = require("cookie-parser");
 const helmet = require("helmet");
 const SQLiteStore = require("connect-sqlite3")(session);
 
-const { sessionName } = require('./constants');
+const { sessionName } = require("./constants");
 const db = require("./models");
 
-const { isAuthenticated } = require('./middleware/authCheck');
+const { isAuthenticated } = require("./middleware/authCheck");
 
 const logger = require("./utils/logger")(module);
 
 const app = express();
 
 // Enable this if you run behind a proxy (e.g. nginx)
-app.set('trust proxy', process.env.TRUST_PROXY);
+app.set("trust proxy", process.env.TRUST_PROXY);
 
 // Configure SQLite store file
 const sqliteStore = new SQLiteStore({
@@ -35,21 +35,21 @@ app.use(session({
 	resave: false,
 	saveUninitialized: false,
 	cookie: {
-		secure: 'auto', // if true only transmit cookie over https
+		secure: "auto", // if true only transmit cookie over https
 		httpOnly: true, // if true prevent client side JS from reading the cookie 
 	}
 }));
 
 app.use(cors());
 app.use(helmet());
-app.disable('x-powered-by');
+app.disable("x-powered-by");
 
 app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Static
-app.use(express.static(__dirname + '/static'));
+app.use(express.static(__dirname + "/static"));
 
 // Routes
 app.use("/api/auth/", require("./routes/auth"));
@@ -84,6 +84,6 @@ const cleanupFunc = (signal) => {
 	});
 }
 
-['SIGHUP', 'SIGINT', 'SIGQUIT', 'SIGTERM', 'SIGUSR1', 'SIGUSR2'].forEach((signal) => {
+["SIGHUP", "SIGINT", "SIGQUIT", "SIGTERM", "SIGUSR1", "SIGUSR2"].forEach((signal) => {
 	process.on(signal, () => cleanupFunc(signal));
 });

@@ -9,13 +9,13 @@ const typedefs = require("../typedefs");
  * 
  * Example:
  * ```javascript
- * let nodes = ['a', 'b', 'c', 'd', 'e'];
+ * let nodes = ["a", "b", "c", "d", "e"];
  * let edges = [
- *		{ from: 'a', to: 'b' },
- *		{ from: 'b', to: 'c' },
- *		{ from: 'c', to: 'd' },
- *		{ from: 'd', to: 'a' },
- *		{ from: 'e', to: 'a' }
+ *		{ from: "a", to: "b" },
+ *		{ from: "b", to: "c" },
+ *		{ from: "c", to: "d" },
+ *		{ from: "d", to: "a" },
+ *		{ from: "e", to: "a" }
  *	];
  * let g = new myGraph(nodes, edges);
  * console.log(g.detectCycle()); // true
