@@ -98,7 +98,7 @@ const updateUser = async (req, res) => {
 			});
 			if (cleanedUser !== toRemovePls.length) {
 				res.sendStatus(500);
-				logger.error("Could not remove all old playlists", { error: new Error("Playlists.destroy failed?") });
+				logger.warn("Could not remove all old playlists", { error: new Error("Playlists.destroy failed?") });
 				return;
 			}
 		}
@@ -116,7 +116,7 @@ const updateUser = async (req, res) => {
 		}
 
 		res.status(200).send({ removedLinks: removedLinks > 0 });
-		logger.info("Updated user data", { delLinks: removedLinks, delPls: cleanedUser, addPls: updatedUser.length });
+		logger.debug("Updated user data", { delLinks: removedLinks, delPls: cleanedUser, addPls: updatedUser.length });
 		return;
 	} catch (error) {
 		res.sendStatus(500);
@@ -154,7 +154,7 @@ const fetchUser = async (req, res) => {
 			playlists: currentPlaylists,
 			links: currentLinks
 		});
-		logger.info("Fetched user data", { pls: currentPlaylists.length, links: currentLinks.length });
+		logger.debug("Fetched user data", { pls: currentPlaylists.length, links: currentLinks.length });
 		return;
 	} catch (error) {
 		res.sendStatus(500);
@@ -174,17 +174,16 @@ const createLink = async (req, res) => {
 
 		let fromPl, toPl;
 		try {
-			fromPl = parseSpotifyLink(req.body["from"]);
-			toPl = parseSpotifyLink(req.body["to"]);
+			fromPl = parseSpotifyLink(req.body.from);
+			toPl = parseSpotifyLink(req.body.to);
 			if (fromPl.type !== "playlist" || toPl.type !== "playlist") {
 				res.status(400).send({ message: "Link is not a playlist" });
-				logger.warn("non-playlist link provided", { from: fromPl, to: toPl });
-
+				logger.info("non-playlist link provided", { from: fromPl, to: toPl });
 				return;
 			}
 		} catch (error) {
-			res.status(400).send({ message: error.message });
-			logger.error("parseSpotifyLink", { error });
+			res.status(400).send({ message: "Could not parse link" });
+			logger.warn("parseSpotifyLink", { error });
 			return;
 		}
 
@@ -197,8 +196,8 @@ const createLink = async (req, res) => {
 
 		// if playlists are unknown
 		if (![fromPl, toPl].every(pl => playlists.includes(pl.id))) {
-			res.sendStatus(404);
-			logger.error("unknown playlists, resync");
+			res.status(404).send({ message: "Playlists out of sync "});
+			logger.warn("unknown playlists, resync");
 			return;
 		}
 
@@ -214,7 +213,7 @@ const createLink = async (req, res) => {
 		});
 		if (existingLink) {
 			res.sendStatus(409);
-			logger.error("link already exists");
+			logger.info("link already exists");
 			return;
 		}
 
@@ -228,7 +227,7 @@ const createLink = async (req, res) => {
 
 		if (newGraph.detectCycle()) {
 			res.status(400).send({ message: "Proposed link cannot cause a cycle in the graph" });
-			logger.error("potential cycle detected");
+			logger.warn("potential cycle detected");
 			return;
 		}
 
@@ -244,7 +243,7 @@ const createLink = async (req, res) => {
 		}
 
 		res.sendStatus(201);
-		logger.info("Created link");
+		logger.debug("Created link");
 		return;
 	} catch (error) {
 		res.sendStatus(500);
@@ -265,16 +264,16 @@ const removeLink = async (req, res) => {
 
 		let fromPl, toPl;
 		try {
-			fromPl = parseSpotifyLink(req.body["from"]);
-			toPl = parseSpotifyLink(req.body["to"]);
+			fromPl = parseSpotifyLink(req.body.from);
+			toPl = parseSpotifyLink(req.body.to);
 			if (fromPl.type !== "playlist" || toPl.type !== "playlist") {
 				res.status(400).send({ message: "Link is not a playlist" });
-				logger.warn("non-playlist link provided", { from: fromPl, to: toPl });
+				logger.info("non-playlist link provided", { from: fromPl, to: toPl });
 				return;
 			}
 		} catch (error) {
-			res.status(400).send({ message: error.message });
-			logger.error("parseSpotifyLink", { error });
+			res.status(400).send({ message: "Could not parse link" });
+			logger.warn("parseSpotifyLink", { error });
 			return;
 		}
 
@@ -290,7 +289,7 @@ const removeLink = async (req, res) => {
 		});
 		if (!existingLink) {
 			res.sendStatus(409);
-			logger.error("link does not exist");
+			logger.warn("link does not exist");
 			return;
 		}
 
@@ -310,7 +309,7 @@ const removeLink = async (req, res) => {
 		}
 
 		res.sendStatus(200);
-		logger.info("Deleted link");
+		logger.debug("Deleted link");
 		return;
 	} catch (error) {
 		res.sendStatus(500);
@@ -350,12 +349,12 @@ const populateSingleLink = async (req, res) => {
 			toPl = parseSpotifyLink(req.body.to);
 			if (fromPl.type !== "playlist" || toPl.type !== "playlist") {
 				res.status(400).send({ message: "Link is not a playlist" });
-				logger.warn("non-playlist link provided", link);
+				logger.info("non-playlist link provided", link);
 				return;
 			}
 		} catch (error) {
-			res.status(400).send({ message: error.message });
-			logger.error("parseSpotifyLink", { error });
+			res.status(400).send({ message: "Could not parse link" });
+			logger.warn("parseSpotifyLink", { error });
 			return;
 		}
 
@@ -400,7 +399,7 @@ const populateSingleLink = async (req, res) => {
 
 
 		// keep getting batches of 50 till exhausted
-		for (let i = 1; "next" in fromPlaylist; i++) {
+		while (fromPlaylist.next) {
 			const nextData = await getPlaylistDetailsNextPage(req, res, fromPlaylist.next);
 			if (res.headersSent) return;
 
@@ -436,7 +435,7 @@ const populateSingleLink = async (req, res) => {
 		});
 
 		// keep getting batches of 50 till exhausted
-		for (let i = 1; "next" in toPlaylist; i++) {
+		while (toPlaylist.next) {
 			const nextData = await getPlaylistDetailsNextPage(req, res, toPlaylist.next);
 			if (res.headersSent) return;
 
@@ -475,7 +474,7 @@ const populateSingleLink = async (req, res) => {
 			added: toAddNum,
 			local: localNum,
 		});
-		logger.info(`Backfilled ${toAddNum} tracks, could not add ${localNum} local files.`);
+		logger.debug(`Backfilled ${toAddNum} tracks, could not add ${localNum} local files.`);
 		return;
 	} catch (error) {
 		res.sendStatus(500);
@@ -507,16 +506,16 @@ const pruneSingleLink = async (req, res) => {
 
 		let fromPl, toPl;
 		try {
-			fromPl = parseSpotifyLink(req.body["from"]);
-			toPl = parseSpotifyLink(req.body["to"]);
+			fromPl = parseSpotifyLink(req.body.from);
+			toPl = parseSpotifyLink(req.body.to);
 			if (fromPl.type !== "playlist" || toPl.type !== "playlist") {
 				res.status(400).send({ message: "Link is not a playlist" });
-				logger.warn("non-playlist link provided", { from: fromPl, to: toPl });
-				return
+				logger.info("non-playlist link provided", { from: fromPl, to: toPl });
+				return;
 			}
 		} catch (error) {
 			res.status(400).send({ message: error.message });
-			logger.error("parseSpotifyLink", { error });
+			logger.warn("parseSpotifyLink", { error });
 			return;
 		}
 
@@ -532,7 +531,7 @@ const pruneSingleLink = async (req, res) => {
 		});
 		if (!existingLink) {
 			res.sendStatus(409);
-			logger.error("link does not exist");
+			logger.warn("link does not exist");
 			return
 		}
 
@@ -561,7 +560,7 @@ const pruneSingleLink = async (req, res) => {
 		});
 
 		// keep getting batches of 50 till exhausted
-		for (let i = 1; "next" in fromPlaylist; i++) {
+		while (fromPlaylist.next) {
 			const nextData = await getPlaylistDetailsNextPage(req, res, fromPlaylist.next);
 			if (res.headersSent) return;
 
@@ -598,7 +597,7 @@ const pruneSingleLink = async (req, res) => {
 		});
 
 		// keep getting batches of 50 till exhausted
-		for (let i = 1; "next" in toPlaylist; i++) {
+		while (toPlaylist.next) {
 			const nextData = await getPlaylistDetailsNextPage(req, res, toPlaylist.next);
 			if (res.headersSent) return;
 
@@ -638,7 +637,7 @@ const pruneSingleLink = async (req, res) => {
 		}
 
 		res.status(200).send({ message: `Removed ${toDelNum} tracks.` });
-		logger.info(`Pruned ${toDelNum} tracks`);
+		logger.debug(`Pruned ${toDelNum} tracks`);
 		return;
 	} catch (error) {
 		res.sendStatus(500);

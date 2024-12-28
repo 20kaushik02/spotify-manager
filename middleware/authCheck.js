@@ -19,7 +19,7 @@ const isAuthenticated = (req, res, next) => {
 		const delSession = req.session.destroy((err) => {
 			if (err) {
 				res.sendStatus(500);
-				logger.error("Error while destroying session.", { err });
+				logger.error("session.destroy", { err });
 				return;
 			} else {
 				res.clearCookie(sessionName);

@@ -49,10 +49,10 @@ const callback = async (req, res) => {
 		// check state
 		if (state === null || state !== storedState) {
 			res.redirect(409, "/");
-			logger.error("state mismatch");
+			logger.warn("state mismatch");
 			return;
 		} else if (error) {
-			res.status(401).send("Auth callback error");
+			res.status(401).send({ message: "Auth callback error" });
 			logger.error("callback error", { error });
 			return;
 		} else {
@@ -73,10 +73,9 @@ const callback = async (req, res) => {
 				logger.debug("Tokens obtained.");
 				req.session.accessToken = tokenResponse.data.access_token;
 				req.session.refreshToken = tokenResponse.data.refresh_token;
-				req.session.cookie.maxAge = 7 * 24 * 60 * 60 * 1000 // 1 week
 			} else {
 				logger.error("login failed", { statusCode: tokenResponse.status });
-				res.status(tokenResponse.status).send("Error: Login failed");
+				res.status(tokenResponse.status).send({ message: "Error: Login failed" });
 			}
 
 			const userData = await getUserProfile(req, res);
@@ -88,8 +87,9 @@ const callback = async (req, res) => {
 				id: userData.id,
 			};
 
-			res.sendStatus(200);
-			logger.info("New login.", { username: userData.display_name });
+			// res.sendStatus(200);
+			res.redirect(process.env.APP_URI + "?login=success");
+			logger.debug("New login.", { username: userData.display_name });
 			return;
 		}
 	} catch (error) {
@@ -120,10 +120,10 @@ const refresh = async (req, res) => {
 			req.session.refreshToken = response.data.refresh_token ?? req.session.refreshToken; // refresh token rotation
 
 			res.sendStatus(200);
-			logger.info(`Access token refreshed${(response.data.refresh_token !== null) ? " and refresh token updated" : ""}.`);
+			logger.debug(`Access token refreshed${(response.data.refresh_token !== null) ? " and refresh token updated" : ""}.`);
 			return;
 		} else {
-			res.status(response.status).send("Error: Refresh token flow failed.");
+			res.status(response.status).send({ message: "Error: Refresh token flow failed." });
 			logger.error("refresh failed", { statusCode: response.status });
 			return;
 		}
@@ -141,15 +141,15 @@ const refresh = async (req, res) => {
  */
 const logout = async (req, res) => {
 	try {
-		const delSession = req.session.destroy((err) => {
-			if (err) {
+		const delSession = req.session.destroy((error) => {
+			if (error) {
 				res.sendStatus(500);
-				logger.error("Error while logging out", { err });
+				logger.error("Error while logging out", { error });
 				return;
 			} else {
 				res.clearCookie(sessionName);
 				res.sendStatus(200);
-				logger.info("Logged out.", { sessionID: delSession.id });
+				logger.debug("Logged out.", { sessionID: delSession.id });
 				return;
 			}
 		})

@@ -35,6 +35,11 @@ const singleRequest = async (req, res, method, path, config = {}, data = null, i
 			// Non 2XX response received
 			let logMsg;
 			if (error.response.status >= 400 && error.response.status < 600) {
+				if (error.response.status === 401) {
+					logMsg="reauth, attempting...";
+					logger.info(logPrefix + logMsg);
+					// reauth here?
+				}
 				res.status(error.response.status).send(error.response.data);
 				logMsg = "" + error.response.status
 			}
@@ -42,7 +47,7 @@ const singleRequest = async (req, res, method, path, config = {}, data = null, i
 				res.sendStatus(error.response.status);
 				logMsg = "???";
 			}
-			logger.error(logPrefix + logMsg, {
+			logger.warn(logPrefix + logMsg, {
 				response: {
 					data: error.response.data,
 					status: error.response.status,
@@ -51,7 +56,7 @@ const singleRequest = async (req, res, method, path, config = {}, data = null, i
 		} else if (error.request) {
 			// No response received
 			res.sendStatus(504);
-			logger.warn(logPrefix + "No response", { error });
+			logger.error(logPrefix + "No response", { error });
 		} else {
 			// Something happened in setting up the request that triggered an Error
 			res.sendStatus(500);
@@ -144,7 +149,7 @@ const checkPlaylistEditable = async (req, res, playlistID, userID) => {
 			message: "You cannot edit this playlist, you must be the owner/the playlist must be collaborative",
 			playlistID: playlistID
 		});
-		logger.warn("user cannot edit target playlist", { playlistID: playlistID });
+		logger.info("user cannot edit target playlist", { playlistID: playlistID });
 		return false;
 	} else {
 		return true;

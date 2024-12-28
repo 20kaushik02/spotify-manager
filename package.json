@@ -4,8 +4,10 @@
   "description": "Personal Spotify playlist manager",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
-    "dev": "cross-env NODE_ENV=development nodemon --exitcrash index.js"
+    "dev": "cross-env NODE_ENV=development nodemon --delay 2 --exitcrash index.js",
+    "test_setup": "npm i && cross-env NODE_ENV=test npx sequelize-cli db:migrate",
+    "test": "cross-env NODE_ENV=test node index.js",
+    "prod": "NODE_ENV=production node index.js"
   },
   "repository": {
     "type": "git",
@@ -18,7 +20,7 @@
   },
   "homepage": "https://github.com/20kaushik02/spotify-manager#readme",
   "dependencies": {
-    "axios": "^1.7.8",
+    "axios": "^1.7.9",
     "connect-sqlite3": "^0.9.15",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
@@ -26,7 +28,7 @@
     "express": "^4.21.2",
     "express-session": "^1.18.1",
     "express-validator": "^7.2.0",
-    "helmet": "^7.2.0",
+    "helmet": "^8.0.0",
     "sequelize": "^6.37.5",
     "pg": "^8.13.1",
     "serializr": "^3.0.3",
@@ -34,10 +36,10 @@
   },
   "devDependencies": {
     "@types/express": "^4.17.21",
-    "@types/node": "^22.2.0",
+    "@types/node": "^22.10.2",
     "cross-env": "^7.0.3",
-    "nodemon": "^3.1.4",
+    "nodemon": "^3.1.9",
     "sequelize-cli": "^6.6.2",
-    "typescript": "^5.5.4"
+    "typescript": "^5.7.2"
   }
 }

@@ -13,6 +13,7 @@ const { sessionName } = require("./constants");
 const db = require("./models");
 
 const { isAuthenticated } = require("./middleware/authCheck");
+const { getUserProfile } = require("./api/spotify");
 
 const logger = require("./utils/logger")(module);
 
@@ -35,13 +36,21 @@ app.use(session({
 	resave: false,
 	saveUninitialized: false,
 	cookie: {
-		secure: "auto", // if true only transmit cookie over https
-		httpOnly: true, // if true prevent client side JS from reading the cookie 
+		domain: process.env.BASE_DOMAIN,
+		httpOnly: true, // if true prevent client side JS from reading the cookie
+		maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week
+		sameSite: process.env.NODE_ENV === "development" ? "lax" : "none", // cross-site for production
+		secure: process.env.NODE_ENV === "development" ? false : true, // if true only transmit cookie over https
 	}
 }));
 
-app.use(cors());
-app.use(helmet());
+app.use(cors({
+	origin: process.env.APP_URI,
+	credentials: true
+}));
+app.use(helmet({
+	crossOriginOpenerPolicy: { policy: process.env.NODE_ENV === "development" ? "unsafe-none" : "same-origin" }
+}));
 app.disable("x-powered-by");
 
 app.use(cookieParser());
@@ -50,6 +59,24 @@ app.use(express.urlencoded({ extended: true }));
 
 // Static
 app.use(express.static(__dirname + "/static"));
+
+// Healthcheck
+app.use("/health", (req, res) => {
+	res.sendStatus(200);
+	return;
+});
+app.use("/auth-health", isAuthenticated, async (req, res) => {
+	try {
+		await getUserProfile(req, res);
+		if (res.headersSent) return;
+		res.sendStatus(200);
+		return;
+	} catch (error) {
+		res.sendStatus(500);
+		logger.error("authHealthCheck", { error });
+		return;
+	}
+});
 
 // Routes
 app.use("/api/auth/", require("./routes/auth"));
@@ -61,7 +88,7 @@ app.use((req, res) => {
 	res.status(404).send(
 		"Guess the <a href=\"https://github.com/20kaushik02/spotify-manager\">cat's</a> out of the bag!"
 	);
-	logger.info("Unrecognized URL", { url: req.url });
+	logger.info("404", { url: req.url });
 	return;
 });
 
@@ -73,7 +100,7 @@ const server = app.listen(port, () => {
 
 const cleanupFunc = (signal) => {
 	if (signal)
-		logger.info(`${signal} signal received, shutting down now...`);
+		logger.debug(`${signal} signal received, shutting down now...`);
 
 	Promise.allSettled([
 		db.sequelize.close(),
