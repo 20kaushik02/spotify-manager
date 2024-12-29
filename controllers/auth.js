@@ -148,7 +148,8 @@ const logout = async (req, res) => {
 				return;
 			} else {
 				res.clearCookie(sessionName);
-				res.sendStatus(200);
+				// res.sendStatus(200);
+				res.redirect(process.env.APP_URI + "?logout=success");
 				logger.debug("Logged out.", { sessionID: delSession.id });
 				return;
 			}

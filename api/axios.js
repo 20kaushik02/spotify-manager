@@ -1,9 +1,10 @@
 const axios = require("axios");
+const rateLimit = require("axios-rate-limit");
 
 const { baseAPIURL, accountsAPIURL } = require("../constants");
 const logger = require("../utils/logger")(module);
 
-const authInstance = axios.default.create({
+const authInstance = axios.create({
 	baseURL: accountsAPIURL,
 	timeout: 20000,
 	headers: {
@@ -12,12 +13,17 @@ const authInstance = axios.default.create({
 	},
 });
 
-const axiosInstance = axios.default.create({
+const uncappedAxiosInstance = axios.create({
 	baseURL: baseAPIURL,
 	timeout: 20000,
 	headers: {
 		"Content-Type": "application/json"
 	},
+});
+
+const axiosInstance = rateLimit(uncappedAxiosInstance, {
+	maxRequests: 10,
+	perMilliseconds: 5000,
 });
 
 axiosInstance.interceptors.request.use(config => {
