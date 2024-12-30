@@ -35,11 +35,6 @@ const singleRequest = async (req, res, method, path, config = {}, data = null, i
 			// Non 2XX response received
 			let logMsg;
 			if (error.response.status >= 400 && error.response.status < 600) {
-				if (error.response.status === 401) {
-					logMsg="reauth, attempting...";
-					logger.info(logPrefix + logMsg);
-					// reauth here?
-				}
 				res.status(error.response.status).send(error.response.data);
 				logMsg = "" + error.response.status
 			}
