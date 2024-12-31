@@ -18,12 +18,12 @@ const isAuthenticated = (req, res, next) => {
 	} else {
 		const delSession = req.session.destroy((err) => {
 			if (err) {
-				res.sendStatus(500);
+				res.status(500).send({ message: "Internal Server Error" });
 				logger.error("session.destroy", { err });
 				return;
 			} else {
 				res.clearCookie(sessionName);
-				res.sendStatus(401);
+				res.status(401).send({ message: "Unauthorized" });
 				logger.debug("Session invalid, destroyed.", { sessionID: delSession.id });
 				return;
 			}

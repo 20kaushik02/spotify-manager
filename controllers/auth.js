@@ -30,7 +30,7 @@ const login = (_req, res) => {
 		);
 		return;
 	} catch (error) {
-		res.sendStatus(500);
+		res.status(500).send({ message: "Internal Server Error" });
 		logger.error("login", { error });
 		return;
 	}
@@ -87,13 +87,13 @@ const callback = async (req, res) => {
 				id: userData.id,
 			};
 
-			// res.sendStatus(200);
+			// res.status(200).send({ message: "OK" });
 			res.redirect(process.env.APP_URI + "?login=success");
 			logger.debug("New login.", { username: userData.display_name });
 			return;
 		}
 	} catch (error) {
-		res.sendStatus(500);
+		res.status(500).send({ message: "Internal Server Error" });
 		logger.error("callback", { error });
 		return;
 	}
@@ -119,7 +119,7 @@ const refresh = async (req, res) => {
 			req.session.accessToken = response.data.access_token;
 			req.session.refreshToken = response.data.refresh_token ?? req.session.refreshToken; // refresh token rotation
 
-			res.sendStatus(200);
+			res.status(200).send({ message: "OK" });
 			logger.debug(`Access token refreshed${(response.data.refresh_token !== null) ? " and refresh token updated" : ""}.`);
 			return;
 		} else {
@@ -128,7 +128,7 @@ const refresh = async (req, res) => {
 			return;
 		}
 	} catch (error) {
-		res.sendStatus(500);
+		res.status(500).send({ message: "Internal Server Error" });
 		logger.error("refresh", { error });
 		return;
 	}
@@ -143,19 +143,19 @@ const logout = async (req, res) => {
 	try {
 		const delSession = req.session.destroy((error) => {
 			if (error) {
-				res.sendStatus(500);
+				res.status(500).send({ message: "Internal Server Error" });
 				logger.error("Error while logging out", { error });
 				return;
 			} else {
 				res.clearCookie(sessionName);
-				// res.sendStatus(200);
+				// res.status(200).send({ message: "OK" });
 				res.redirect(process.env.APP_URI + "?logout=success");
 				logger.debug("Logged out.", { sessionID: delSession.id });
 				return;
 			}
 		})
 	} catch (error) {
-		res.sendStatus(500);
+		res.status(500).send({ message: "Internal Server Error" });
 		logger.error("logout", { error });
 		return;
 	}

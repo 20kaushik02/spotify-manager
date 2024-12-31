@@ -10,7 +10,7 @@ const __controller_func = async (req, res) => {
 	try {
 
 	} catch (error) {
-		res.sendStatus(500);
+		res.status(500).send({ message: "Internal Server Error" });
 		logger.error("__controller_func", { error });
 		return;
 	}

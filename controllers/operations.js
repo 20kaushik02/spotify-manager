@@ -97,7 +97,7 @@ const updateUser = async (req, res) => {
 				where: { playlistID: toRemovePlIDs }
 			});
 			if (cleanedUser !== toRemovePls.length) {
-				res.sendStatus(500);
+				res.status(500).send({ message: "Internal Server Error" });
 				logger.warn("Could not remove all old playlists", { error: new Error("Playlists.destroy failed?") });
 				return;
 			}
@@ -109,7 +109,7 @@ const updateUser = async (req, res) => {
 				{ validate: true }
 			);
 			if (updatedUser.length !== toAddPls.length) {
-				res.sendStatus(500);
+				res.status(500).send({ message: "Internal Server Error" });
 				logger.error("Could not add all new playlists", { error: new Error("Playlists.bulkCreate failed?") });
 				return;
 			}
@@ -119,7 +119,7 @@ const updateUser = async (req, res) => {
 		logger.debug("Updated user data", { delLinks: removedLinks, delPls: cleanedUser, addPls: updatedUser.length });
 		return;
 	} catch (error) {
-		res.sendStatus(500);
+		res.status(500).send({ message: "Internal Server Error" });
 		logger.error("updateUser", { error });
 		return;
 	}
@@ -157,7 +157,7 @@ const fetchUser = async (req, res) => {
 		logger.debug("Fetched user data", { pls: currentPlaylists.length, links: currentLinks.length });
 		return;
 	} catch (error) {
-		res.sendStatus(500);
+		res.status(500).send({ message: "Internal Server Error" });
 		logger.error("fetchUser", { error });
 		return;
 	}
@@ -196,7 +196,7 @@ const createLink = async (req, res) => {
 
 		// if playlists are unknown
 		if (![fromPl, toPl].every(pl => playlists.includes(pl.id))) {
-			res.status(404).send({ message: "Playlists out of sync "});
+			res.status(404).send({ message: "Playlists out of sync " });
 			logger.warn("unknown playlists, resync");
 			return;
 		}
@@ -212,7 +212,7 @@ const createLink = async (req, res) => {
 			}
 		});
 		if (existingLink) {
-			res.sendStatus(409);
+			res.status(409).send({ message: "Link already exists!" });
 			logger.info("link already exists");
 			return;
 		}
@@ -237,16 +237,16 @@ const createLink = async (req, res) => {
 			to: toPl.id
 		});
 		if (!newLink) {
-			res.sendStatus(500);
+			res.status(500).send({ message: "Internal Server Error" });
 			logger.error("Could not create link", { error: new Error("Links.create failed?") });
 			return;
 		}
 
-		res.sendStatus(201);
+		res.status(201).send({ message: "Created link." });
 		logger.debug("Created link");
 		return;
 	} catch (error) {
-		res.sendStatus(500);
+		res.status(500).send({ message: "Internal Server Error" });
 		logger.error("createLink", { error });
 		return;
 	}
@@ -288,7 +288,7 @@ const removeLink = async (req, res) => {
 			}
 		});
 		if (!existingLink) {
-			res.sendStatus(409);
+			res.status(409).send({ message: "Link does not exist!" });
 			logger.warn("link does not exist");
 			return;
 		}
@@ -303,16 +303,16 @@ const removeLink = async (req, res) => {
 			}
 		});
 		if (!removedLink) {
-			res.sendStatus(500);
+			res.status(500).send({ message: "Internal Server Error" });
 			logger.error("Could not remove link", { error: new Error("Links.destroy failed?") });
 			return;
 		}
 
-		res.sendStatus(200);
+		res.status(200).send({ message: "OK" });
 		logger.debug("Deleted link");
 		return;
 	} catch (error) {
-		res.sendStatus(500);
+		res.status(500).send({ message: "Internal Server Error" });
 		logger.error("removeLink", { error });
 		return;
 	}
@@ -345,8 +345,8 @@ const populateSingleLink = async (req, res) => {
 		const uID = req.session.user.id;
 
 		try {
-			fromPl = parseSpotifyLink(req.body.from);
-			toPl = parseSpotifyLink(req.body.to);
+			fromPl = parseSpotifyLink(link.from);
+			toPl = parseSpotifyLink(link.to);
 			if (fromPl.type !== "playlist" || toPl.type !== "playlist") {
 				res.status(400).send({ message: "Link is not a playlist" });
 				logger.info("non-playlist link provided", link);
@@ -369,7 +369,7 @@ const populateSingleLink = async (req, res) => {
 			}
 		});
 		if (!existingLink) {
-			res.sendStatus(409);
+			res.status(409).send({ message: "Link does not exist!" });
 			logger.warn("link does not exist", { link });
 			return;
 		}
@@ -477,7 +477,7 @@ const populateSingleLink = async (req, res) => {
 		logger.debug(`Backfilled ${toAddNum} tracks, could not add ${localNum} local files.`);
 		return;
 	} catch (error) {
-		res.sendStatus(500);
+		res.status(500).send({ message: "Internal Server Error" });
 		logger.error("populateSingleLink", { error });
 		return;
 	}
@@ -503,14 +503,15 @@ const populateSingleLink = async (req, res) => {
 const pruneSingleLink = async (req, res) => {
 	try {
 		const uID = req.session.user.id;
+		const link = { from: req.body.from, to: req.body.to };
 
 		let fromPl, toPl;
 		try {
-			fromPl = parseSpotifyLink(req.body.from);
-			toPl = parseSpotifyLink(req.body.to);
+			fromPl = parseSpotifyLink(link.from);
+			toPl = parseSpotifyLink(link.to);
 			if (fromPl.type !== "playlist" || toPl.type !== "playlist") {
 				res.status(400).send({ message: "Link is not a playlist" });
-				logger.info("non-playlist link provided", { from: fromPl, to: toPl });
+				logger.info("non-playlist link provided", link);
 				return;
 			}
 		} catch (error) {
@@ -530,9 +531,9 @@ const pruneSingleLink = async (req, res) => {
 			}
 		});
 		if (!existingLink) {
-			res.sendStatus(409);
-			logger.warn("link does not exist");
-			return
+			res.status(409).send({ message: "Link does not exist!" });
+			logger.warn("link does not exist", { link });
+			return;
 		}
 
 		if (!await checkPlaylistEditable(req, res, toPl.id, uID))
@@ -640,7 +641,7 @@ const pruneSingleLink = async (req, res) => {
 		logger.debug(`Pruned ${toDelNum} tracks`);
 		return;
 	} catch (error) {
-		res.sendStatus(500);
+		res.status(500).send({ message: "Internal Server Error" });
 		logger.error("pruneSingleLink", { error });
 		return;
 	}

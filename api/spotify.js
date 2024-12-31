@@ -50,11 +50,11 @@ const singleRequest = async (req, res, method, path, config = {}, data = null, i
 			});
 		} else if (error.request) {
 			// No response received
-			res.sendStatus(504);
+			res.status(504).send({ message: "No response from Spotify" });
 			logger.error(logPrefix + "No response", { error });
 		} else {
 			// Something happened in setting up the request that triggered an Error
-			res.sendStatus(500);
+			res.status(500).send({ message: "Internal Server Error" });
 			logger.error(logPrefix + "Request failed?", { error });
 		}
 

@@ -54,7 +54,7 @@ const fetchUserPlaylists = async (req, res) => {
 		logger.debug("Fetched user playlists", { num: userPlaylists.total });
 		return;
 	} catch (error) {
-		res.sendStatus(500);
+		res.status(500).send({ message: "Internal Server Error" });
 		logger.error("fetchUserPlaylists", { error });
 		return;
 	}
@@ -147,7 +147,7 @@ const fetchPlaylistDetails = async (req, res) => {
 		logger.debug("Fetched playlist tracks", { num: playlist.tracks.length });
 		return;
 	} catch (error) {
-		res.sendStatus(500);
+		res.status(500).send({ message: "Internal Server Error" });
 		logger.error("getPlaylistDetails", { error });
 		return;
 	}

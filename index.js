@@ -62,17 +62,17 @@ app.use(express.static(__dirname + "/static"));
 
 // Healthcheck
 app.use("/health", (req, res) => {
-	res.sendStatus(200);
+	res.status(200).send({ message: "OK" });
 	return;
 });
 app.use("/auth-health", isAuthenticated, async (req, res) => {
 	try {
 		await getUserProfile(req, res);
 		if (res.headersSent) return;
-		res.sendStatus(200);
+		res.status(200).send({ message: "OK" });
 		return;
 	} catch (error) {
-		res.sendStatus(500);
+		res.status(500).send({ message: "Internal Server Error" });
 		logger.error("authHealthCheck", { error });
 		return;
 	}
