@@ -2,7 +2,9 @@ const typedefs = require("../typedefs");
 const logger = require("../utils/logger")(module);
 
 const { getUserPlaylistsFirstPage, getUserPlaylistsNextPage, getPlaylistDetailsFirstPage, getPlaylistDetailsNextPage, addItemsToPlaylist, removeItemsFromPlaylist, checkPlaylistEditable } = require("../api/spotify");
+
 const { parseSpotifyLink } = require("../utils/spotifyURITransformer");
+const { randomBool } = require("../utils/flake");
 const myGraph = require("../utils/graph");
 
 const { Op } = require("sequelize");
@@ -132,6 +134,10 @@ const updateUser = async (req, res) => {
  */
 const fetchUser = async (req, res) => {
 	try {
+		// if (randomBool()) {
+		// 	res.status(401).send({ message: "Unauthorized" });
+		// 	return;
+		// }
 		const uID = req.session.user.id;
 
 		const currentPlaylists = await Playlists.findAll({
