@@ -5,24 +5,24 @@ const { isAuthenticated } = require("../middleware/authCheck");
 const validator = require("../validators");
 
 router.get(
-	"/login",
-	login
+  "/login",
+  login
 );
 
 router.get(
-	"/callback",
-	callback
+  "/callback",
+  callback
 );
 
 router.get(
-	"/refresh",
-	isAuthenticated,
-	refresh
+  "/refresh",
+  isAuthenticated,
+  refresh
 );
 
 router.get(
-	"/logout",
-	logout
+  "/logout",
+  logout
 );
 
 module.exports = router;

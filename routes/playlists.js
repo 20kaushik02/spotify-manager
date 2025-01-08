@@ -5,15 +5,15 @@ const { getPlaylistDetailsValidator } = require("../validators/playlists");
 const { validate } = require("../validators");
 
 router.get(
-	"/me",
-	fetchUserPlaylists
+  "/me",
+  fetchUserPlaylists
 );
 
 router.get(
-	"/details",
-	getPlaylistDetailsValidator,
-	validate,
-	fetchPlaylistDetails
+  "/details",
+  getPlaylistDetailsValidator,
+  validate,
+  fetchPlaylistDetails
 );
 
 module.exports = router;

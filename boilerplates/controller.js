@@ -7,15 +7,15 @@ const typedefs = require("../typedefs");
  * @param {typedefs.Res} res
  */
 const __controller_func = async (req, res) => {
-	try {
+  try {
 
-	} catch (error) {
-		res.status(500).send({ message: "Internal Server Error" });
-		logger.error("__controller_func", { error });
-		return;
-	}
+  } catch (error) {
+    res.status(500).send({ message: "Internal Server Error" });
+    logger.error("__controller_func", { error });
+    return;
+  }
 }
 
 module.exports = {
-	__controller_func
+  __controller_func
 };
