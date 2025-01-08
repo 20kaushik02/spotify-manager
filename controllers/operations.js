@@ -4,7 +4,7 @@ const logger = require("../utils/logger")(module);
 const { getUserPlaylistsFirstPage, getUserPlaylistsNextPage, getPlaylistDetailsFirstPage, getPlaylistDetailsNextPage, addItemsToPlaylist, removeItemsFromPlaylist, checkPlaylistEditable } = require("../api/spotify");
 
 const { parseSpotifyLink } = require("../utils/spotifyURITransformer");
-const { randomBool } = require("../utils/flake");
+const { randomBool, sleep } = require("../utils/flake");
 const myGraph = require("../utils/graph");
 
 const { Op } = require("sequelize");
@@ -134,8 +134,8 @@ const updateUser = async (req, res) => {
  */
 const fetchUser = async (req, res) => {
 	try {
-		// if (randomBool()) {
-		// 	res.status(401).send({ message: "Unauthorized" });
+		// if (randomBool(0.5)) {
+		// 	res.status(404).send({ message: "Not Found" });
 		// 	return;
 		// }
 		const uID = req.session.user.id;
@@ -176,6 +176,7 @@ const fetchUser = async (req, res) => {
  */
 const createLink = async (req, res) => {
 	try {
+		// await sleep(1000);
 		const uID = req.session.user.id;
 
 		let fromPl, toPl;
@@ -314,7 +315,7 @@ const removeLink = async (req, res) => {
 			return;
 		}
 
-		res.status(200).send({ message: "OK" });
+		res.status(200).send({ message: "Deleted link." });
 		logger.debug("Deleted link");
 		return;
 	} catch (error) {
@@ -475,12 +476,12 @@ const populateSingleLink = async (req, res) => {
 			if (res.headersSent) return;
 		}
 
-		res.status(201).send({
-			message: `Added ${toAddNum} tracks, could not add ${localNum} local files.`,
-			added: toAddNum,
-			local: localNum,
-		});
-		logger.debug(`Backfilled ${toAddNum} tracks, could not add ${localNum} local files.`);
+		let logMsg;
+		logMsg = toAddNum > 0 ? "Added " + toAddNum + " tracks" : "No tracks to add";
+		logMsg += localNum > 0 ? ", but could not add " + localNum + " local files" : ".";
+
+		res.status(200).send({ message: logMsg });
+		logger.debug(logMsg);
 		return;
 	} catch (error) {
 		res.status(500).send({ message: "Internal Server Error" });
