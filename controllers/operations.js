@@ -8,6 +8,7 @@ const { randomBool, sleep } = require("../utils/flake");
 const myGraph = require("../utils/graph");
 
 const { Op } = require("sequelize");
+const { sequelize } = require("../models");
 /** @type {typedefs.Model} */
 const Playlists = require("../models").playlists;
 /** @type {typedefs.Model} */
@@ -53,32 +54,52 @@ const updateUser = async (req, res) => {
     }
 
     let oldPlaylists = await Playlists.findAll({
-      attributes: ["playlistID"],
+      attributes: ["playlistID", "playlistName"],
       raw: true,
       where: {
         userID: uID
       },
     });
 
-    let toRemovePls, toAddPls;
-    if (oldPlaylists.length) {
-      // existing user
-      const currentSet = new Set(currentPlaylists.map(pl => pl.playlistID));
-      const oldSet = new Set(oldPlaylists.map(pl => pl.playlistID));
+    const deleted = [];
+    const added = [];
+    const renamed = [];
 
-      // TODO: update playlist name
-      toAddPls = currentPlaylists.filter(current => !oldSet.has(current.playlistID));
-      toRemovePls = oldPlaylists.filter(old => !currentSet.has(old.playlistID));
+    if (oldPlaylists.length) {
+      const oldMap = new Map(oldPlaylists.map((p) => [p.playlistID, p]));
+      const currentMap = new Map(currentPlaylists.map((p) => [p.playlistID, p]));
+
+      // Check for added and renamed playlists
+      currentPlaylists.forEach((pl) => {
+        const oldPlaylist = oldMap.get(pl.playlistID);
+
+        if (!oldPlaylist) {
+          added.push(pl);
+        } else if (oldPlaylist.playlistName !== pl.playlistName) {
+          // Renamed playlists
+          renamed.push({
+            playlistID: pl.playlistID,
+            oldName: oldPlaylist.playlistName,
+            newName: pl.playlistName,
+          });
+        }
+      });
+
+      // Check for deleted playlists
+      oldPlaylists.forEach((pl) => {
+        if (!currentMap.has(pl.playlistID)) {
+          deleted.push(pl);
+        }
+      });
     } else {
       // new user
-      toAddPls = currentPlaylists;
-      toRemovePls = [];
+      added.push(...currentPlaylists);
     }
-    let toRemovePlIDs = toRemovePls.map(pl => pl.playlistID);
 
-    let removedLinks = 0, cleanedUser = 0, updatedUser = [];
+    let removedLinks = 0, delNum = 0, updateNum = 0, addPls = [];
 
-    if (toRemovePls.length) {
+    const deletedIDs = deleted.map(pl => pl.playlistID);
+    if (deleted.length) {
       // clean up any links dependent on the playlists
       removedLinks = await Links.destroy({
         where: {
@@ -86,8 +107,8 @@ const updateUser = async (req, res) => {
             { userID: uID },
             {
               [Op.or]: [
-                { from: { [Op.in]: toRemovePlIDs } },
-                { to: { [Op.in]: toRemovePlIDs } },
+                { from: { [Op.in]: deletedIDs } },
+                { to: { [Op.in]: deletedIDs } },
               ]
             }
           ]
@@ -95,30 +116,54 @@ const updateUser = async (req, res) => {
       })
 
       // only then remove
-      cleanedUser = await Playlists.destroy({
-        where: { playlistID: toRemovePlIDs }
+      delNum = await Playlists.destroy({
+        where: { playlistID: deletedIDs, userID: uID }
       });
-      if (cleanedUser !== toRemovePls.length) {
+      if (delNum !== deleted.length) {
         res.status(500).send({ message: "Internal Server Error" });
         logger.warn("Could not remove all old playlists", { error: new Error("Playlists.destroy failed?") });
         return;
       }
     }
 
-    if (toAddPls.length) {
-      updatedUser = await Playlists.bulkCreate(
-        toAddPls.map(pl => { return { ...pl, userID: uID } }),
+    if (added.length) {
+      addPls = await Playlists.bulkCreate(
+        added.map(pl => { return { ...pl, userID: uID } }),
         { validate: true }
       );
-      if (updatedUser.length !== toAddPls.length) {
+      if (addPls.length !== added.length) {
         res.status(500).send({ message: "Internal Server Error" });
         logger.error("Could not add all new playlists", { error: new Error("Playlists.bulkCreate failed?") });
         return;
       }
     }
 
-    res.status(200).send({ removedLinks: removedLinks > 0 });
-    logger.debug("Updated user data", { delLinks: removedLinks, delPls: cleanedUser, addPls: updatedUser.length });
+    const transaction = await sequelize.transaction();
+    try {
+      for (const { playlistID, newName } of renamed) {
+        const updateRes = await Playlists.update(
+          { playlistName: newName },
+          { where: { playlistID, userID: uID } },
+          { transaction }
+        );
+        updateNum += Number(updateRes[0]);
+      }
+
+      await transaction.commit();
+    } catch (error) {
+      await transaction.rollback();
+      res.status(500).send({ message: "Internal Server Error" });
+      logger.error("Could not update playlist names", { error: new Error("Playlists.update failed?") });
+      return;
+    }
+
+    res.status(200).send({ message: "Updated user data.", removedLinks: removedLinks > 0 });
+    logger.debug("Updated user data", {
+      delLinks: removedLinks,
+      delPls: delNum,
+      addPls: addPls.length,
+      updatedPls: updateNum
+    });
     return;
   } catch (error) {
     res.status(500).send({ message: "Internal Server Error" });
@@ -203,7 +248,7 @@ const createLink = async (req, res) => {
 
     // if playlists are unknown
     if (![fromPl, toPl].every(pl => playlists.includes(pl.id))) {
-      res.status(404).send({ message: "Playlists out of sync " });
+      res.status(404).send({ message: "Playlists out of sync." });
       logger.warn("unknown playlists, resync");
       return;
     }
