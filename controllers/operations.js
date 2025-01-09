@@ -121,7 +121,7 @@ const updateUser = async (req, res) => {
       });
       if (delNum !== deleted.length) {
         res.status(500).send({ message: "Internal Server Error" });
-        logger.warn("Could not remove all old playlists", { error: new Error("Playlists.destroy failed?") });
+        logger.error("Could not remove all old playlists", { error: new Error("Playlists.destroy failed?") });
         return;
       }
     }
@@ -371,6 +371,54 @@ const removeLink = async (req, res) => {
 }
 
 /**
+ *
+ * @param {typedefs.Req} req
+ * @param {typedefs.Res} res
+ * @param {string} playlistID
+ */
+const _getPlaylistTracks = async (req, res, playlistID) => {
+  let initialFields = ["tracks(next,items(is_local,track(uri)))"];
+  let mainFields = ["next", "items(is_local,track(uri))"];
+
+  const respData = await getPlaylistDetailsFirstPage(req, res, initialFields.join(), playlistID);
+  if (res.headersSent) return;
+
+  let pl = {};
+  // varying fields again smh
+  if (respData.tracks.next) {
+    pl.next = new URL(respData.tracks.next);
+    pl.next.searchParams.set("fields", mainFields.join());
+    pl.next = pl.next.href;
+  }
+  pl.tracks = respData.tracks.items.map((playlist_item) => {
+    return {
+      is_local: playlist_item.is_local,
+      uri: playlist_item.track.uri
+    }
+  });
+
+  // keep getting batches of 50 till exhausted
+  while (pl.next) {
+    const nextData = await getPlaylistDetailsNextPage(req, res, pl.next);
+    if (res.headersSent) return;
+
+    pl.tracks.push(
+      ...nextData.items.map((playlist_item) => {
+        return {
+          is_local: playlist_item.is_local,
+          uri: playlist_item.track.uri
+        }
+      })
+    );
+
+    pl.next = nextData.next;
+  }
+
+  delete pl.next;
+  return pl;
+}
+
+/**
  * Add tracks to the link-head playlist,
  * that are present in the link-tail playlist but not in the link-head playlist,
  * in the order that they are present in the link-tail playlist.
@@ -396,80 +444,8 @@ const _populateSingleLinkCore = async (req, res, link) => {
   try {
     const fromPl = link.from, toPl = link.to;
 
-    let initialFields = ["tracks(next,items(is_local,track(uri)))"];
-    let mainFields = ["next", "items(is_local,track(uri))"];
-
-    const fromData = await getPlaylistDetailsFirstPage(req, res, initialFields.join(), fromPl.id);
-    if (res.headersSent) return;
-
-    let fromPlaylist = {};
-    // varying fields again smh
-    if (fromData.tracks.next) {
-      fromPlaylist.next = new URL(fromData.tracks.next);
-      fromPlaylist.next.searchParams.set("fields", mainFields.join());
-      fromPlaylist.next = fromPlaylist.next.href;
-    }
-    fromPlaylist.tracks = fromData.tracks.items.map((playlist_item) => {
-      return {
-        is_local: playlist_item.is_local,
-        uri: playlist_item.track.uri
-      }
-    });
-
-    // keep getting batches of 50 till exhausted
-    while (fromPlaylist.next) {
-      const nextData = await getPlaylistDetailsNextPage(req, res, fromPlaylist.next);
-      if (res.headersSent) return;
-
-      fromPlaylist.tracks.push(
-        ...nextData.items.map((playlist_item) => {
-          return {
-            is_local: playlist_item.is_local,
-            uri: playlist_item.track.uri
-          }
-        })
-      );
-
-      fromPlaylist.next = nextData.next;
-    }
-
-    delete fromPlaylist.next;
-
-    const toData = await getPlaylistDetailsFirstPage(req, res, initialFields.join(), toPl.id);
-    if (res.headersSent) return;
-
-    let toPlaylist = {};
-    // varying fields again smh
-    if (toData.tracks.next) {
-      toPlaylist.next = new URL(toData.tracks.next);
-      toPlaylist.next.searchParams.set("fields", mainFields.join());
-      toPlaylist.next = toPlaylist.next.href;
-    }
-    toPlaylist.tracks = toData.tracks.items.map((playlist_item) => {
-      return {
-        is_local: playlist_item.is_local,
-        uri: playlist_item.track.uri
-      }
-    });
-
-    // keep getting batches of 50 till exhausted
-    while (toPlaylist.next) {
-      const nextData = await getPlaylistDetailsNextPage(req, res, toPlaylist.next);
-      if (res.headersSent) return;
-
-      toPlaylist.tracks.push(
-        ...nextData.items.map((playlist_item) => {
-          return {
-            is_local: playlist_item.is_local,
-            uri: playlist_item.track.uri
-          }
-        })
-      );
-
-      toPlaylist.next = nextData.next;
-    }
-
-    delete toPlaylist.next;
+    const fromPlaylist = await _getPlaylistTracks(req, res, fromPl.id);
+    const toPlaylist = await _getPlaylistTracks(req, res, toPl.id);
 
     const fromTrackURIs = fromPlaylist.tracks.map(track => track.uri);
     let toTrackURIs = toPlaylist.tracks.
@@ -540,12 +516,13 @@ const populateSingleLink = async (req, res) => {
 
     const result = await _populateSingleLinkCore(req, res, { from: fromPl, to: toPl });
     if (result) {
+      const { toAddNum, localNum } = result;
       let logMsg;
-      logMsg = result.toAddNum > 0 ? "Added " + result.toAddNum + " tracks" : "No tracks to add";
-      logMsg += result.localNum > 0 ? ", but could not add " + result.localNum + " local files" : ".";
+      logMsg = toAddNum > 0 ? "Added " + toAddNum + " tracks" : "No tracks to add";
+      logMsg += localNum > 0 ? ", but could not add " + localNum + " local files" : ".";
 
       res.status(200).send({ message: logMsg });
-      logger.debug(logMsg);
+      logger.debug(logMsg, { toAddNum, localNum });
     }
     return;
   } catch (error) {
@@ -578,82 +555,8 @@ const _pruneSingleLinkCore = async (req, res, link) => {
   try {
     const fromPl = link.from, toPl = link.to;
 
-    let initialFields = ["snapshot_id", "tracks(next,items(is_local,track(uri)))"];
-    let mainFields = ["next", "items(is_local,track(uri))"];
-
-    const fromData = await getPlaylistDetailsFirstPage(req, res, initialFields.join(), fromPl.id);
-    if (res.headersSent) return;
-
-    let fromPlaylist = {};
-    // varying fields again smh
-    fromPlaylist.snapshot_id = fromData.snapshot_id;
-    if (fromData.tracks.next) {
-      fromPlaylist.next = new URL(fromData.tracks.next);
-      fromPlaylist.next.searchParams.set("fields", mainFields.join());
-      fromPlaylist.next = fromPlaylist.next.href;
-    }
-    fromPlaylist.tracks = fromData.tracks.items.map((playlist_item) => {
-      return {
-        is_local: playlist_item.is_local,
-        uri: playlist_item.track.uri
-      }
-    });
-
-    // keep getting batches of 50 till exhausted
-    while (fromPlaylist.next) {
-      const nextData = await getPlaylistDetailsNextPage(req, res, fromPlaylist.next);
-      if (res.headersSent) return;
-
-      fromPlaylist.tracks.push(
-        ...nextData.items.map((playlist_item) => {
-          return {
-            is_local: playlist_item.is_local,
-            uri: playlist_item.track.uri
-          }
-        })
-      );
-
-      fromPlaylist.next = nextData.next;
-    }
-
-    delete fromPlaylist.next;
-
-    const toData = await getPlaylistDetailsFirstPage(req, res, initialFields.join(), toPl.id);
-    if (res.headersSent) return;
-
-    let toPlaylist = {};
-    // varying fields again smh
-    toPlaylist.snapshot_id = toData.snapshot_id;
-    if (toData.tracks.next) {
-      toPlaylist.next = new URL(toData.tracks.next);
-      toPlaylist.next.searchParams.set("fields", mainFields.join());
-      toPlaylist.next = toPlaylist.next.href;
-    }
-    toPlaylist.tracks = toData.tracks.items.map((playlist_item) => {
-      return {
-        is_local: playlist_item.is_local,
-        uri: playlist_item.track.uri
-      }
-    });
-
-    // keep getting batches of 50 till exhausted
-    while (toPlaylist.next) {
-      const nextData = await getPlaylistDetailsNextPage(req, res, toPlaylist.next);
-      if (res.headersSent) return;
-
-      toPlaylist.tracks.push(
-        ...nextData.items.map((playlist_item) => {
-          return {
-            is_local: playlist_item.is_local,
-            uri: playlist_item.track.uri
-          }
-        })
-      );
-
-      toPlaylist.next = nextData.next;
-    }
-
-    delete toPlaylist.next;
+    const fromPlaylist = await _getPlaylistTracks(req, res, fromPl.id);
+    const toPlaylist = await _getPlaylistTracks(req, res, toPl.id);
 
     const fromTrackURIs = fromPlaylist.tracks.map(track => track.uri);
     let indexedToTrackURIs = toPlaylist.tracks;
@@ -729,8 +632,9 @@ const pruneSingleLink = async (req, res) => {
 
     const result = await _pruneSingleLinkCore(req, res, { from: fromPl, to: toPl });
     if (result) {
-      res.status(200).send({ message: `Removed ${result.toDelNum} tracks.` });
-      logger.debug(`Pruned ${result.toDelNum} tracks`);
+      const { toDelNum } = result;
+      res.status(200).send({ message: `Removed ${toDelNum} tracks.` });
+      logger.debug(`Pruned ${toDelNum} tracks`, { toDelNum });
     }
     return;
   } catch (error) {
