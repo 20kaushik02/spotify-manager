@@ -41,10 +41,68 @@ class myGraph {
 
   /**
    * @param {string} node
+   * @returns {{ from: string, to: string }[]}
+  */
+  getDirectHeadEdges(node) {
+    return this.edges.filter(edge => edge.to == node);
+  }
+
+  /**
+   * BFS
+   * @param {string} node
    * @returns {string[]}
-   */
+  */
+  getAllHeads(node) {
+    const headSet = new Set();
+    const toVisit = new Set(); // queue
+    toVisit.add(node);
+    while (toVisit.size > 0) {
+      const nextNode = toVisit.values().next().value;
+      const nextHeads = this.getDirectHeads(nextNode);
+      nextHeads.forEach(head => {
+        headSet.add(head);
+        toVisit.add(head);
+      });
+      toVisit.delete(nextNode);
+    }
+    return [...headSet];
+  }
+
+  /**
+   * @param {string} node
+   * @returns {string[]}
+  */
   getDirectTails(node) {
     return this.edges.filter(edge => edge.from == node).map(edge => edge.to);
+  }
+
+  /**
+   * @param {string} node
+   * @returns {{ from: string, to: string }[]}
+  */
+  getDirectTailEdges(node) {
+    return this.edges.filter(edge => edge.from == node);
+  }
+
+  /**
+   * BFS
+   * @param {string} node
+   * @returns {string[]}
+   */
+  getAllTails(node) {
+    const tailSet = new Set();
+    const toVisit = new Set(); // queue
+    toVisit.add(node);
+    while (toVisit.size > 0) {
+      const nextNode = toVisit.values().next().value;
+      const nextTails = this.getDirectTails(nextNode);
+      nextTails.forEach(tail => {
+        tailSet.add(tail);
+        toVisit.add(tail);
+      });
+      toVisit.delete(nextNode);
+    }
+    return [...tailSet];
   }
 
   /**
