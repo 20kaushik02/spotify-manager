@@ -309,7 +309,7 @@ const createLink = async (req, res) => {
  * Remove link between playlists
  * @param {typedefs.Req} req
  * @param {typedefs.Res} res
- */
+*/
 const removeLink = async (req, res) => {
   try {
     const uID = req.session.user.id;
@@ -389,45 +389,12 @@ const removeLink = async (req, res) => {
  *
  * @param {typedefs.Req} req
  * @param {typedefs.Res} res
+ * @param {{from: typedefs.URIObject, to: typedefs.URIObject}} link
+ * @returns {Promise<{toAddNum: number, localNum: number} | undefined>}
  */
-const populateSingleLink = async (req, res) => {
+const _populateSingleLinkCore = async (req, res, link) => {
   try {
-    let fromPl, toPl;
-    const link = { from: req.body.from, to: req.body.to };
-    const uID = req.session.user.id;
-
-    try {
-      fromPl = parseSpotifyLink(link.from);
-      toPl = parseSpotifyLink(link.to);
-      if (fromPl.type !== "playlist" || toPl.type !== "playlist") {
-        res.status(400).send({ message: "Link is not a playlist" });
-        logger.info("non-playlist link provided", link);
-        return;
-      }
-    } catch (error) {
-      res.status(400).send({ message: "Could not parse link" });
-      logger.warn("parseSpotifyLink", { error });
-      return;
-    }
-
-    // check if exists
-    const existingLink = await Links.findOne({
-      where: {
-        [Op.and]: [
-          { userID: uID },
-          { from: fromPl.id },
-          { to: toPl.id }
-        ]
-      }
-    });
-    if (!existingLink) {
-      res.status(409).send({ message: "Link does not exist!" });
-      logger.warn("link does not exist", { link });
-      return;
-    }
-
-    if (!await checkPlaylistEditable(req, res, fromPl.id, uID))
-      return;
+    const fromPl = link.from, toPl = link.to;
 
     let initialFields = ["tracks(next,items(is_local,track(uri)))"];
     let mainFields = ["next", "items(is_local,track(uri))"];
@@ -448,7 +415,6 @@ const populateSingleLink = async (req, res) => {
         uri: playlist_item.track.uri
       }
     });
-
 
     // keep getting batches of 50 till exhausted
     while (fromPlaylist.next) {
@@ -521,13 +487,67 @@ const populateSingleLink = async (req, res) => {
       if (res.headersSent) return;
     }
 
-    let logMsg;
-    logMsg = toAddNum > 0 ? "Added " + toAddNum + " tracks" : "No tracks to add";
-    logMsg += localNum > 0 ? ", but could not add " + localNum + " local files" : ".";
-
-    res.status(200).send({ message: logMsg });
-    logger.debug(logMsg);
+    return { toAddNum, localNum };
+  } catch (error) {
+    res.status(500).send({ message: "Internal Server Error" });
+    logger.error("_populateSingleLinkCore", { error });
     return;
+  }
+}
+
+/**
+ * @param {typedefs.Req} req
+ * @param {typedefs.Res} res
+ */
+const populateSingleLink = async (req, res) => {
+  try {
+    const uID = req.session.user.id;
+    const link = { from: req.body.from, to: req.body.to };
+    let fromPl, toPl;
+
+    try {
+      fromPl = parseSpotifyLink(link.from);
+      toPl = parseSpotifyLink(link.to);
+      if (fromPl.type !== "playlist" || toPl.type !== "playlist") {
+        res.status(400).send({ message: "Link is not a playlist" });
+        logger.info("non-playlist link provided", link);
+        return;
+      }
+    } catch (error) {
+      res.status(400).send({ message: "Could not parse link" });
+      logger.warn("parseSpotifyLink", { error });
+      return;
+    }
+
+    // check if exists
+    const existingLink = await Links.findOne({
+      where: {
+        [Op.and]: [
+          { userID: uID },
+          { from: fromPl.id },
+          { to: toPl.id }
+        ]
+      }
+    });
+    if (!existingLink) {
+      res.status(409).send({ message: "Link does not exist!" });
+      logger.warn("link does not exist", { link });
+      return;
+    }
+
+    if (!await checkPlaylistEditable(req, res, fromPl.id, uID))
+      return;
+
+    const result = await _populateSingleLinkCore(req, res, { from: fromPl, to: toPl });
+    if (result) {
+      let logMsg;
+      logMsg = result.toAddNum > 0 ? "Added " + result.toAddNum + " tracks" : "No tracks to add";
+      logMsg += result.localNum > 0 ? ", but could not add " + result.localNum + " local files" : ".";
+
+      res.status(200).send({ message: logMsg });
+      logger.debug(logMsg);
+      return;
+    }
   } catch (error) {
     res.status(500).send({ message: "Internal Server Error" });
     logger.error("populateSingleLink", { error });
@@ -705,5 +725,6 @@ module.exports = {
   createLink,
   removeLink,
   populateSingleLink,
+  populateLinksPropagate,
   pruneSingleLink,
 };
