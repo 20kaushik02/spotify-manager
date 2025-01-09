@@ -546,8 +546,8 @@ const populateSingleLink = async (req, res) => {
 
       res.status(200).send({ message: logMsg });
       logger.debug(logMsg);
-      return;
     }
+    return;
   } catch (error) {
     res.status(500).send({ message: "Internal Server Error" });
     logger.error("populateSingleLink", { error });
@@ -571,45 +571,12 @@ const populateSingleLink = async (req, res) => {
  *
  * @param {typedefs.Req} req
  * @param {typedefs.Res} res
+ * @param {{from: typedefs.URIObject, to: typedefs.URIObject}} link
+ * @returns {Promise<{toDelNum: number} | undefined>}
  */
-const pruneSingleLink = async (req, res) => {
+const _pruneSingleLinkCore = async (req, res, link) => {
   try {
-    const uID = req.session.user.id;
-    const link = { from: req.body.from, to: req.body.to };
-
-    let fromPl, toPl;
-    try {
-      fromPl = parseSpotifyLink(link.from);
-      toPl = parseSpotifyLink(link.to);
-      if (fromPl.type !== "playlist" || toPl.type !== "playlist") {
-        res.status(400).send({ message: "Link is not a playlist" });
-        logger.info("non-playlist link provided", link);
-        return;
-      }
-    } catch (error) {
-      res.status(400).send({ message: error.message });
-      logger.warn("parseSpotifyLink", { error });
-      return;
-    }
-
-    // check if exists
-    const existingLink = await Links.findOne({
-      where: {
-        [Op.and]: [
-          { userID: uID },
-          { from: fromPl.id },
-          { to: toPl.id }
-        ]
-      }
-    });
-    if (!existingLink) {
-      res.status(409).send({ message: "Link does not exist!" });
-      logger.warn("link does not exist", { link });
-      return;
-    }
-
-    if (!await checkPlaylistEditable(req, res, toPl.id, uID))
-      return;
+    const fromPl = link.from, toPl = link.to;
 
     let initialFields = ["snapshot_id", "tracks(next,items(is_local,track(uri)))"];
     let mainFields = ["next", "items(is_local,track(uri))"];
@@ -709,8 +676,62 @@ const pruneSingleLink = async (req, res) => {
       currentSnapshot = delResponse.snapshot_id;
     }
 
-    res.status(200).send({ message: `Removed ${toDelNum} tracks.` });
-    logger.debug(`Pruned ${toDelNum} tracks`);
+    return { toDelNum };
+  } catch (error) {
+    res.status(500).send({ message: "Internal Server Error" });
+    logger.error("_pruneSingleLinkCore", { error })
+    return;
+  }
+}
+
+/**
+ * @param {typedefs.Req} req
+ * @param {typedefs.Res} res
+*/
+const pruneSingleLink = async (req, res) => {
+  try {
+    const uID = req.session.user.id;
+    const link = { from: req.body.from, to: req.body.to };
+
+    let fromPl, toPl;
+    try {
+      fromPl = parseSpotifyLink(link.from);
+      toPl = parseSpotifyLink(link.to);
+      if (fromPl.type !== "playlist" || toPl.type !== "playlist") {
+        res.status(400).send({ message: "Link is not a playlist" });
+        logger.info("non-playlist link provided", link);
+        return;
+      }
+    } catch (error) {
+      res.status(400).send({ message: error.message });
+      logger.warn("parseSpotifyLink", { error });
+      return;
+    }
+
+    // check if exists
+    const existingLink = await Links.findOne({
+      where: {
+        [Op.and]: [
+          { userID: uID },
+          { from: fromPl.id },
+          { to: toPl.id }
+        ]
+      }
+    });
+    if (!existingLink) {
+      res.status(409).send({ message: "Link does not exist!" });
+      logger.warn("link does not exist", { link });
+      return;
+    }
+
+    if (!await checkPlaylistEditable(req, res, toPl.id, uID))
+      return;
+
+    const result = await _pruneSingleLinkCore(req, res, { from: fromPl, to: toPl });
+    if (result) {
+      res.status(200).send({ message: `Removed ${result.toDelNum} tracks.` });
+      logger.debug(`Pruned ${result.toDelNum} tracks`);
+    }
     return;
   } catch (error) {
     res.status(500).send({ message: "Internal Server Error" });
@@ -725,6 +746,5 @@ module.exports = {
   createLink,
   removeLink,
   populateSingleLink,
-  populateLinksPropagate,
   pruneSingleLink,
 };
