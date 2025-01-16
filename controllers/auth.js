@@ -48,7 +48,7 @@ const callback = async (req, res) => {
 
     // check state
     if (state === null || state !== storedState) {
-      res.redirect(409, "/");
+      res.status(409).send({ message: "Invalid state" });
       logger.warn("state mismatch");
       return;
     } else if (error) {

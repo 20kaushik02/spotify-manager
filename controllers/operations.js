@@ -519,7 +519,7 @@ const populateSingleLink = async (req, res) => {
       const { toAddNum, localNum } = result;
       let logMsg;
       logMsg = toAddNum > 0 ? "Added " + toAddNum + " tracks" : "No tracks to add";
-      logMsg += localNum > 0 ? ", but could not add " + localNum + " local files" : ".";
+      logMsg += localNum > 0 ? "; could not process " + localNum + " local files" : ".";
 
       res.status(200).send({ message: logMsg });
       logger.debug(logMsg, { toAddNum, localNum });
