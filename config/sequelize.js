@@ -1,4 +1,5 @@
-const logger = require("../utils/logger")(module);
+import curriedLogger from "../utils/logger.js";
+const logger = curriedLogger(import.meta);
 
 const connConfigs = {
   development: {
@@ -8,7 +9,7 @@ const connConfigs = {
     host: process.env.DB_HOST || "127.0.0.1",
     port: process.env.DB_PORT || 5432,
   },
-  staging: {
+  test: {
     use_env_variable: "DB_URL", // use connection string for non-dev env
   },
   production: {
@@ -25,4 +26,4 @@ for (const conf in connConfigs) {
   connConfigs[conf]["dialect"] = process.env.DB_DIALECT || "postgres";
 }
 
-module.exports = connConfigs;
+export default connConfigs;

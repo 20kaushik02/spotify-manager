@@ -1,9 +1,10 @@
 
-const logger = require("../utils/logger")(module);
+import curriedLogger from "../utils/logger.js";
+const logger = curriedLogger(import.meta);
 
-const typedefs = require("../typedefs");
+import * as typedefs from "../typedefs.js";
 
-const { axiosInstance } = require("./axios");
+import { axiosInstance } from "./axios.js";
 
 const logPrefix = "Spotify API: ";
 
@@ -17,7 +18,7 @@ const logPrefix = "Spotify API: ";
  * @param {any} data request body
  * @param {boolean} inlineData true if data is to be placed inside config
  */
-const singleRequest = async (req, res, method, path, config = {}, data = null, inlineData = false) => {
+export const singleRequest = async (req, res, method, path, config = {}, data = null, inlineData = false) => {
   let resp;
   config.headers = { ...config.headers, ...req.sessHeaders };
   try {
@@ -62,7 +63,7 @@ const singleRequest = async (req, res, method, path, config = {}, data = null, i
   };
 }
 
-const getUserProfile = async (req, res) => {
+export const getUserProfile = async (req, res) => {
   const response = await singleRequest(req, res,
     "GET", "/me",
     { headers: { Authorization: `Bearer ${req.session.accessToken}` } }
@@ -70,7 +71,7 @@ const getUserProfile = async (req, res) => {
   return res.headersSent ? null : response.data;
 }
 
-const getUserPlaylistsFirstPage = async (req, res) => {
+export const getUserPlaylistsFirstPage = async (req, res) => {
   const response = await singleRequest(req, res,
     "GET",
     `/users/${req.session.user.id}/playlists`,
@@ -83,13 +84,13 @@ const getUserPlaylistsFirstPage = async (req, res) => {
   return res.headersSent ? null : response.data;
 }
 
-const getUserPlaylistsNextPage = async (req, res, nextURL) => {
+export const getUserPlaylistsNextPage = async (req, res, nextURL) => {
   const response = await singleRequest(
     req, res, "GET", nextURL);
   return res.headersSent ? null : response.data;
 }
 
-const getPlaylistDetailsFirstPage = async (req, res, initialFields, playlistID) => {
+export const getPlaylistDetailsFirstPage = async (req, res, initialFields, playlistID) => {
   const response = await singleRequest(req, res,
     "GET",
     `/playlists/${playlistID}/`,
@@ -101,13 +102,13 @@ const getPlaylistDetailsFirstPage = async (req, res, initialFields, playlistID) 
   return res.headersSent ? null : response.data;
 }
 
-const getPlaylistDetailsNextPage = async (req, res, nextURL) => {
+export const getPlaylistDetailsNextPage = async (req, res, nextURL) => {
   const response = await singleRequest(
     req, res, "GET", nextURL);
   return res.headersSent ? null : response.data;
 }
 
-const addItemsToPlaylist = async (req, res, nextBatch, playlistID) => {
+export const addItemsToPlaylist = async (req, res, nextBatch, playlistID) => {
   const response = await singleRequest(req, res,
     "POST",
     `/playlists/${playlistID}/tracks`,
@@ -117,7 +118,7 @@ const addItemsToPlaylist = async (req, res, nextBatch, playlistID) => {
   return res.headersSent ? null : response.data;
 }
 
-const removeItemsFromPlaylist = async (req, res, nextBatch, playlistID, snapshotID) => {
+export const removeItemsFromPlaylist = async (req, res, nextBatch, playlistID, snapshotID) => {
   // API doesn't document this kind of deletion via the 'positions' field
   // but see here: https://github.com/spotipy-dev/spotipy/issues/95#issuecomment-2263634801
   const response = await singleRequest(req, res,
@@ -130,7 +131,7 @@ const removeItemsFromPlaylist = async (req, res, nextBatch, playlistID, snapshot
   return res.headersSent ? null : response.data;
 }
 
-const checkPlaylistEditable = async (req, res, playlistID, userID) => {
+export const checkPlaylistEditable = async (req, res, playlistID, userID) => {
   let checkFields = ["collaborative", "owner(id)"];
 
   const checkFromData = await getPlaylistDetailsFirstPage(req, res, checkFields.join(), playlistID);
@@ -149,16 +150,4 @@ const checkPlaylistEditable = async (req, res, playlistID, userID) => {
   } else {
     return true;
   }
-}
-
-module.exports = {
-  singleRequest,
-  getUserProfile,
-  getUserPlaylistsFirstPage,
-  getUserPlaylistsNextPage,
-  getPlaylistDetailsFirstPage,
-  getPlaylistDetailsNextPage,
-  addItemsToPlaylist,
-  removeItemsFromPlaylist,
-  checkPlaylistEditable,
 }

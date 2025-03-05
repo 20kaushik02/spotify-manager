@@ -1,6 +1,7 @@
-const router = require("express").Router();
+import { Router } from "express";
+const router = Router();
 
-const { validate } = require("../validators");
+import { validate } from "../validators/index.js";
 
 router.get(
 
@@ -10,4 +11,4 @@ router.post(
 
 );
 
-module.exports = router;
+export default router;

@@ -1,8 +1,10 @@
-const router = require("express").Router();
+import { Router } from "express";
+const router = Router();
 
-const { updateUser, fetchUser, createLink, removeLink, populateSingleLink, pruneSingleLink } = require("../controllers/operations");
-const { validate } = require("../validators");
-const { createLinkValidator, removeLinkValidator, populateSingleLinkValidator, pruneSingleLinkValidator } = require("../validators/operations");
+import { updateUser, fetchUser, createLink, removeLink, populateSingleLink, pruneSingleLink } from "../controllers/operations.js";
+import { createLinkValidator, removeLinkValidator, populateSingleLinkValidator, pruneSingleLinkValidator } from "../validators/operations.js";
+
+import { validate } from "../validators/index.js";
 
 router.put(
   "/update",
@@ -42,4 +44,4 @@ router.put(
   pruneSingleLink
 );
 
-module.exports = router;
+export default router;

@@ -1,18 +1,19 @@
-const { authInstance } = require("../api/axios");
+import { authInstance } from "../api/axios.js";
 
-const typedefs = require("../typedefs");
-const { scopes, stateKey, accountsAPIURL, sessionName } = require("../constants");
+import * as typedefs from "../typedefs.js";
+import { scopes, stateKey, accountsAPIURL, sessionName } from "../constants.js";
 
-const generateRandString = require("../utils/generateRandString");
-const { getUserProfile } = require("../api/spotify");
-const logger = require("../utils/logger")(module);
+import generateRandString from "../utils/generateRandString.js";
+import { getUserProfile } from "../api/spotify.js";
+import curriedLogger from "../utils/logger.js";
+const logger = curriedLogger(import.meta);
 
 /**
  * Stateful redirect to Spotify login with credentials
  * @param {typedefs.Req} req
  * @param {typedefs.Res} res
  */
-const login = (_req, res) => {
+export const login = (_req, res) => {
   try {
     const state = generateRandString(16);
     res.cookie(stateKey, state);
@@ -41,7 +42,7 @@ const login = (_req, res) => {
  * @param {typedefs.Req} req
  * @param {typedefs.Res} res
  */
-const callback = async (req, res) => {
+export const callback = async (req, res) => {
   try {
     const { code, state, error } = req.query;
     const storedState = req.cookies ? req.cookies[stateKey] : null;
@@ -104,7 +105,7 @@ const callback = async (req, res) => {
  * @param {typedefs.Req} req
  * @param {typedefs.Res} res
  */
-const refresh = async (req, res) => {
+export const refresh = async (req, res) => {
   try {
     const authForm = {
       refresh_token: req.session.refreshToken,
@@ -139,10 +140,10 @@ const refresh = async (req, res) => {
  * @param {typedefs.Req} req
  * @param {typedefs.Res} res
  */
-const logout = async (req, res) => {
+export const logout = async (req, res) => {
   try {
     const delSession = req.session.destroy((error) => {
-      if(Object.keys(error).length) {
+      if (Object.keys(error).length) {
         res.status(500).send({ message: "Internal Server Error" });
         logger.error("Error while logging out", { error });
         return;
@@ -160,10 +161,3 @@ const logout = async (req, res) => {
     return;
   }
 }
-
-module.exports = {
-  login,
-  callback,
-  refresh,
-  logout
-};

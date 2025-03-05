@@ -1,13 +1,12 @@
-const { body, header, param, query } = require("express-validator");
-
-const typedefs = require("../typedefs");
+import { body, header, param, query } from "express-validator";
+import * as typedefs from "../typedefs.js";
 
 /**
  * @param {typedefs.Req} req
  * @param {typedefs.Res} res
  * @param {typedefs.Next} next
  */
-const createLinkValidator = async (req, res, next) => {
+export const createLinkValidator = async (req, res, next) => {
   await body("from")
     .notEmpty()
     .withMessage("from not defined in body")
@@ -23,9 +22,6 @@ const createLinkValidator = async (req, res, next) => {
   next();
 }
 
-module.exports = {
-  createLinkValidator,
-  removeLinkValidator: createLinkValidator,
-  populateSingleLinkValidator: createLinkValidator,
-  pruneSingleLinkValidator: createLinkValidator,
-}
+export { createLinkValidator as removeLinkValidator };
+export { createLinkValidator as populateSingleLinkValidator };
+export { createLinkValidator as pruneSingleLinkValidator };

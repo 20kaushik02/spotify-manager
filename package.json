@@ -2,7 +2,8 @@
   "name": "spotify-manager",
   "version": "0",
   "description": "Personal Spotify playlist manager",
-  "main": "index.js",
+  "exports": "./index.js",
+  "type": "module",
   "scripts": {
     "dev": "cross-env NODE_ENV=development nodemon --delay 2 --exitcrash index.js",
     "test_setup": "npm i && cross-env NODE_ENV=test npx sequelize-cli db:migrate",

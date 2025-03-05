@@ -1,9 +1,9 @@
-const { validationResult } = require("express-validator");
+import { validationResult } from "express-validator";
 
-const { getNestedValuesString } = require("../utils/jsonTransformer");
-const logger = require("../utils/logger")(module);
-
-const typedefs = require("../typedefs");
+import * as typedefs from "../typedefs.js";
+import { getNestedValuesString } from "../utils/jsonTransformer.js";
+import curriedLogger from "../utils/logger.js";
+const logger = curriedLogger(import.meta);
 
 /**
  * Refer: https://stackoverflow.com/questions/58848625/access-messages-in-express-validator
@@ -12,7 +12,7 @@ const typedefs = require("../typedefs");
  * @param {typedefs.Res} res
  * @param {typedefs.Next} next
  */
-const validate = (req, res, next) => {
+export const validate = (req, res, next) => {
   const errors = validationResult(req);
   if (errors.isEmpty()) {
     return next();
@@ -40,7 +40,3 @@ const validate = (req, res, next) => {
   logger.warn("invalid request", { extractedErrors });
   return;
 }
-
-module.exports = {
-  validate
-};

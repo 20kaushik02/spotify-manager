@@ -1,25 +1,25 @@
-const typedefs = require("../typedefs");
-const logger = require("../utils/logger")(module);
+import * as typedefs from "../typedefs.js";
+import curriedLogger from "../utils/logger.js";
+const logger = curriedLogger(import.meta);
 
-const { getUserPlaylistsFirstPage, getUserPlaylistsNextPage, getPlaylistDetailsFirstPage, getPlaylistDetailsNextPage, addItemsToPlaylist, removeItemsFromPlaylist, checkPlaylistEditable } = require("../api/spotify");
+import { getUserPlaylistsFirstPage, getUserPlaylistsNextPage, getPlaylistDetailsFirstPage, getPlaylistDetailsNextPage, addItemsToPlaylist, removeItemsFromPlaylist, checkPlaylistEditable } from "../api/spotify.js";
 
-const { parseSpotifyLink } = require("../utils/spotifyURITransformer");
-const { randomBool, sleep } = require("../utils/flake");
-const myGraph = require("../utils/graph");
+import { parseSpotifyLink } from "../utils/spotifyURITransformer.js";
+import { randomBool, sleep } from "../utils/flake.js";
+import myGraph from "../utils/graph.js";
 
-const { Op } = require("sequelize");
-const { sequelize } = require("../models");
-/** @type {typedefs.Model} */
-const Playlists = require("../models").playlists;
-/** @type {typedefs.Model} */
-const Links = require("../models").links;
+import { Op } from "sequelize";
+
+import models, { sequelize } from "../models/index.js";
+const Playlists = models.playlists;
+const Links = models.links;
 
 /**
  * Sync user's Spotify data
  * @param {typedefs.Req} req
  * @param {typedefs.Res} res
  */
-const updateUser = async (req, res) => {
+export const updateUser = async (req, res) => {
   try {
     let currentPlaylists = [];
     const uID = req.session.user.id;
@@ -177,7 +177,7 @@ const updateUser = async (req, res) => {
  * @param {typedefs.Req} req
  * @param {typedefs.Res} res
  */
-const fetchUser = async (req, res) => {
+export const fetchUser = async (req, res) => {
   try {
     // if (randomBool(0.5)) {
     // 	res.status(404).send({ message: "Not Found" });
@@ -219,7 +219,7 @@ const fetchUser = async (req, res) => {
  * @param {typedefs.Req} req
  * @param {typedefs.Res} res
  */
-const createLink = async (req, res) => {
+export const createLink = async (req, res) => {
   try {
     // await sleep(1000);
     const uID = req.session.user.id;
@@ -310,7 +310,7 @@ const createLink = async (req, res) => {
  * @param {typedefs.Req} req
  * @param {typedefs.Res} res
 */
-const removeLink = async (req, res) => {
+export const removeLink = async (req, res) => {
   try {
     const uID = req.session.user.id;
 
@@ -475,7 +475,7 @@ const _populateSingleLinkCore = async (req, res, link) => {
  * @param {typedefs.Req} req
  * @param {typedefs.Res} res
  */
-const populateSingleLink = async (req, res) => {
+export const populateSingleLink = async (req, res) => {
   try {
     const uID = req.session.user.id;
     const link = { from: req.body.from, to: req.body.to };
@@ -591,7 +591,7 @@ const _pruneSingleLinkCore = async (req, res, link) => {
  * @param {typedefs.Req} req
  * @param {typedefs.Res} res
 */
-const pruneSingleLink = async (req, res) => {
+export const pruneSingleLink = async (req, res) => {
   try {
     const uID = req.session.user.id;
     const link = { from: req.body.from, to: req.body.to };
@@ -643,12 +643,3 @@ const pruneSingleLink = async (req, res) => {
     return;
   }
 }
-
-module.exports = {
-  updateUser,
-  fetchUser,
-  createLink,
-  removeLink,
-  populateSingleLink,
-  pruneSingleLink,
-};

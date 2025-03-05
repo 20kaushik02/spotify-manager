@@ -1,8 +1,9 @@
-const router = require("express").Router();
+import { Router } from "express";
+const router = Router();
 
-const { login, callback, refresh, logout } = require("../controllers/auth");
-const { isAuthenticated } = require("../middleware/authCheck");
-const validator = require("../validators");
+import { login, callback, refresh, logout } from "../controllers/auth.js";
+import { isAuthenticated } from "../middleware/authCheck.js";
+import { validate } from "../validators/index.js";
 
 router.get(
   "/login",
@@ -25,4 +26,4 @@ router.get(
   logout
 );
 
-module.exports = router;
+export default router;

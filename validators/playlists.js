@@ -1,13 +1,12 @@
-const { body, header, param, query } = require("express-validator");
-
-const typedefs = require("../typedefs");
+import { body, header, param, query } from "express-validator";
+import * as typedefs from "../typedefs.js";
 
 /**
  * @param {typedefs.Req} req
  * @param {typedefs.Res} res
  * @param {typedefs.Next} next
  */
-const getPlaylistDetailsValidator = async (req, res, next) => {
+export const getPlaylistDetailsValidator = async (req, res, next) => {
   await query("playlist_link")
     .notEmpty()
     .withMessage("playlist_link not defined in query")
@@ -15,8 +14,4 @@ const getPlaylistDetailsValidator = async (req, res, next) => {
     .withMessage("playlist_link must be a valid link")
     .run(req);
   next();
-}
-
-module.exports = {
-  getPlaylistDetailsValidator
 }

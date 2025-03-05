@@ -1,9 +1,9 @@
-const accountsAPIURL = "https://accounts.spotify.com";
-const baseAPIURL = "https://api.spotify.com/v1";
-const sessionName = "spotify-manager";
-const stateKey = "spotify_auth_state";
+export const accountsAPIURL = "https://accounts.spotify.com";
+export const baseAPIURL = "https://api.spotify.com/v1";
+export const sessionName = "spotify-manager";
+export const stateKey = "spotify_auth_state";
 
-const scopes = {
+export const scopes = {
   // ImageUpload: "ugc-image-upload",
   AccessPrivatePlaylists: "playlist-read-private",
   AccessCollaborativePlaylists: "playlist-read-collaborative",
@@ -14,12 +14,4 @@ const scopes = {
   ModifyLibrary: "user-library-modify",
   AccessLibrary: "user-library-read",
   AccessUser: "user-read-private",
-};
-
-module.exports = {
-  accountsAPIURL,
-  baseAPIURL,
-  sessionName,
-  stateKey,
-  scopes
 };

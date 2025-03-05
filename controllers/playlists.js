@@ -1,15 +1,16 @@
-const logger = require("../utils/logger")(module);
+import curriedLogger from "../utils/logger.js";
+const logger = curriedLogger(import.meta);
 
-const typedefs = require("../typedefs");
-const { getUserPlaylistsFirstPage, getUserPlaylistsNextPage, getPlaylistDetailsFirstPage, getPlaylistDetailsNextPage } = require("../api/spotify");
-const { parseSpotifyLink } = require("../utils/spotifyURITransformer");
+import * as typedefs from "../typedefs.js";
+import { getUserPlaylistsFirstPage, getUserPlaylistsNextPage, getPlaylistDetailsFirstPage, getPlaylistDetailsNextPage } from "../api/spotify.js";
+import { parseSpotifyLink } from "../utils/spotifyURITransformer.js";
 
 /**
  * Retrieve list of all of user's playlists
  * @param {typedefs.Req} req
  * @param {typedefs.Res} res
  */
-const fetchUserPlaylists = async (req, res) => {
+export const fetchUserPlaylists = async (req, res) => {
   try {
     let userPlaylists = {};
 
@@ -65,7 +66,7 @@ const fetchUserPlaylists = async (req, res) => {
  * @param {typedefs.Req} req
  * @param {typedefs.Res} res
  */
-const fetchPlaylistDetails = async (req, res) => {
+export const fetchPlaylistDetails = async (req, res) => {
   try {
     let playlist = {};
     /** @type {typedefs.URIObject} */
@@ -152,8 +153,3 @@ const fetchPlaylistDetails = async (req, res) => {
     return;
   }
 }
-
-module.exports = {
-  fetchUserPlaylists,
-  fetchPlaylistDetails
-};

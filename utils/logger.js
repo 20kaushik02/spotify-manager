@@ -1,9 +1,9 @@
-const path = require("path");
+import path from "path";
 
-const { createLogger, transports, config, format } = require("winston");
+import { createLogger, transports, config, format } from "winston";
+import * as typedefs from "../typedefs.js";
+
 const { combine, label, timestamp, printf, errors } = format;
-
-const typedefs = require("../typedefs");
 
 const getLabel = (callingModule) => {
   if (!callingModule.filename) return "repl";
@@ -35,9 +35,9 @@ const logFormat = printf(({ level, message, label, timestamp, ...meta }) => {
 
 /**
  * Creates a curried function, and call it with the module in use to get logs with filename
- * @param {typedefs.Module} callingModule The module from which the logger is called
+ * @param {typedefs.Module} callingModule The module from which the logger is called (ESM - import.meta)
  */
-const curriedLogger = (callingModule) => {
+export const curriedLogger = (callingModule) => {
   let winstonLogger = createLogger({
     levels: config.npm.levels,
     format: combine(
@@ -49,12 +49,12 @@ const curriedLogger = (callingModule) => {
     transports: [
       new transports.Console({ level: "info" }),
       new transports.File({
-        filename: __dirname + "/../logs/debug.log",
+        filename: import.meta.dirname + "/../logs/debug.log",
         level: "debug",
         maxsize: 10485760,
       }),
       new transports.File({
-        filename: __dirname + "/../logs/error.log",
+        filename: import.meta.dirname + "/../logs/error.log",
         level: "error",
         maxsize: 1048576,
       }),
@@ -64,4 +64,4 @@ const curriedLogger = (callingModule) => {
   return winstonLogger;
 }
 
-module.exports = curriedLogger;
+export default curriedLogger;

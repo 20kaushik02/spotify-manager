@@ -1,4 +1,4 @@
-const typedefs = require("../typedefs");
+import * as typedefs from "../typedefs.js";
 
 /** @type {RegExp} */
 const base62Pattern = /^[A-Za-z0-9]+$/;
@@ -10,7 +10,7 @@ const base62Pattern = /^[A-Za-z0-9]+$/;
  * @returns {typedefs.URIObject}
  * @throws {TypeError} If the input is not a valid Spotify URI
  */
-const parseSpotifyURI = (uri) => {
+export const parseSpotifyURI = (uri) => {
   const parts = uri.split(":");
 
   if (parts[0] !== "spotify") {
@@ -59,7 +59,7 @@ const parseSpotifyURI = (uri) => {
  * @returns {typedefs.URIObject}
  * @throws {TypeError} If the input is not a valid Spotify link
  */
-const parseSpotifyLink = (link) => {
+export const parseSpotifyLink = (link) => {
   const localPattern = /^https:\/\/open\.spotify\.com\/local\/([^\/]*)\/([^\/]*)\/([^\/]+)\/(\d+)$/;
   const standardPattern = /^https:\/\/open\.spotify\.com\/([^\/]+)\/([^\/?]+)/;
 
@@ -106,7 +106,7 @@ const parseSpotifyLink = (link) => {
  * @param {typedefs.URIObject} uriObj
  * @returns {string}
  */
-const buildSpotifyURI = (uriObj) => {
+export const buildSpotifyURI = (uriObj) => {
   if (uriObj.is_local) {
     const artist = encodeURIComponent(uriObj.artist ?? "");
     const album = encodeURIComponent(uriObj.album ?? "");
@@ -122,7 +122,7 @@ const buildSpotifyURI = (uriObj) => {
  * @param {typedefs.URIObject} uriObj
  * @returns {string}
  */
-const buildSpotifyLink = (uriObj) => {
+export const buildSpotifyLink = (uriObj) => {
   if (uriObj.is_local) {
     const artist = encodeURIComponent(uriObj.artist ?? "");
     const album = encodeURIComponent(uriObj.album ?? "");
@@ -131,11 +131,4 @@ const buildSpotifyLink = (uriObj) => {
     return `https://open.spotify.com/local/${artist}/${album}/${title}/${duration}`;
   }
   return `https://open.spotify.com/${uriObj.type}/${uriObj.id}`
-}
-
-module.exports = {
-  parseSpotifyURI,
-  parseSpotifyLink,
-  buildSpotifyURI,
-  buildSpotifyLink
 }

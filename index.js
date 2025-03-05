@@ -1,23 +1,24 @@
-require("dotenv-flow").config();
+import _ from "./config/dotenv.js";
 
-const util = require("util");
-const express = require("express");
-const session = require("express-session");
+import { promisify } from "util";
+import express from "express";
+import session from "express-session";
 
-const cors = require("cors");
-const cookieParser = require("cookie-parser");
-const helmet = require("helmet");
+import cors from "cors";
+import cookieParser from "cookie-parser";
+import helmet from "helmet";
 
-const { createClient } = require('redis');
-const { RedisStore } = require("connect-redis");
+import { createClient } from 'redis';
+import { RedisStore } from "connect-redis";
 
-const { sessionName } = require("./constants");
-const db = require("./models");
+import { sessionName } from "./constants.js";
+import { sequelize } from "./models/index.js";
 
-const { isAuthenticated } = require("./middleware/authCheck");
-const { getUserProfile } = require("./api/spotify");
+import { isAuthenticated } from "./middleware/authCheck.js";
+import { getUserProfile } from "./api/spotify.js";
 
-const logger = require("./utils/logger")(module);
+import curriedLogger from "./utils/logger.js";
+const logger = curriedLogger(import.meta);
 
 const app = express();
 
@@ -73,7 +74,7 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Static
-app.use(express.static(__dirname + "/static"));
+app.use(express.static(import.meta.dirname + "/static"));
 
 // Healthcheck
 app.use("/health", (req, res) => {
@@ -92,11 +93,13 @@ app.use("/auth-health", isAuthenticated, async (req, res) => {
     return;
   }
 });
-
+import authRoutes from "./routes/auth.js";
+import playlistRoutes from "./routes/playlists.js";
+import operationRoutes from "./routes/operations.js";
 // Routes
-app.use("/api/auth/", require("./routes/auth"));
-app.use("/api/playlists", isAuthenticated, require("./routes/playlists"));
-app.use("/api/operations", isAuthenticated, require("./routes/operations"));
+app.use("/api/auth/", authRoutes);
+app.use("/api/playlists", isAuthenticated, playlistRoutes);
+app.use("/api/operations", isAuthenticated, operationRoutes);
 
 // Fallbacks
 app.use((req, res) => {
@@ -119,8 +122,8 @@ const cleanupFunc = (signal) => {
 
   Promise.allSettled([
     redisClient.disconnect,
-    db.sequelize.close(),
-    util.promisify(server.close),
+    sequelize.close(),
+    promisify(server.close),
   ]).then(() => {
     logger.info("Cleaned up, exiting.");
     process.exit(0);

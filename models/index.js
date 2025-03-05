@@ -1,11 +1,16 @@
 "use strict";
-const fs = require("fs");
-const path = require("path");
-const Sequelize = require("sequelize");
-const logger = require("../utils/logger")(module);
-const basename = path.basename(__filename);
+import { readdirSync } from "fs";
+import { basename as _basename } from "path";
+const basename = _basename(import.meta.filename);
+
+import Sequelize from "sequelize";
+
+import curriedLogger from "../utils/logger.js";
+const logger = curriedLogger(import.meta);
+
+import seqConfig from "../config/sequelize.js"
 const env = process.env.NODE_ENV || "development";
-const config = require(__dirname + "/../config/sequelize.js")[env];
+const config = seqConfig[env];
 const db = {};
 
 let sequelize;
@@ -26,15 +31,22 @@ if (config.use_env_variable) {
 })();
 
 // Read model definitions from folder
-fs
-  .readdirSync(__dirname)
-  .filter(file => {
-    return (file.indexOf(".") !== 0) && (file !== basename) && (file.slice(-3) === ".js");
-  })
-  .forEach(file => {
-    const model = require(path.join(__dirname, file))(sequelize, Sequelize.DataTypes);
-    db[model.name] = model;
-  });
+const modelFiles = readdirSync(import.meta.dirname)
+  .filter(
+    (file) => file.indexOf('.') !== 0
+      && file !== basename
+      && file.slice(-3) === '.js',
+  );
+
+await Promise.all(modelFiles.map(async file => {
+  const model = await import(`./${file}`);
+  if (!model.default) {
+    return;
+  }
+
+  const namedModel = model.default(sequelize, Sequelize.DataTypes);
+  db[namedModel.name] = namedModel;
+}))
 
 // Setup defined associations
 Object.keys(db).forEach(modelName => {
@@ -43,7 +55,9 @@ Object.keys(db).forEach(modelName => {
   }
 });
 
+// clean ts up
 db.sequelize = sequelize;
 db.Sequelize = Sequelize;
-
-module.exports = db;
+export { sequelize as sequelize };
+export { Sequelize as Sequelize };
+export default db;

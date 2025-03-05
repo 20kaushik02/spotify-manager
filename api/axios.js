@@ -1,10 +1,11 @@
-const axios = require("axios");
-const rateLimit = require("axios-rate-limit");
+import axios from "axios";
+import rateLimit from "axios-rate-limit";
 
-const { baseAPIURL, accountsAPIURL } = require("../constants");
-const logger = require("../utils/logger")(module);
+import { baseAPIURL, accountsAPIURL } from "../constants.js";
+import curriedLogger from "../utils/logger.js";
+const logger = curriedLogger(import.meta);
 
-const authInstance = axios.create({
+export const authInstance = axios.create({
   baseURL: accountsAPIURL,
   timeout: 20000,
   headers: {
@@ -21,7 +22,7 @@ const uncappedAxiosInstance = axios.create({
   },
 });
 
-const axiosInstance = rateLimit(uncappedAxiosInstance, {
+export const axiosInstance = rateLimit(uncappedAxiosInstance, {
   maxRequests: 10,
   perMilliseconds: 5000,
 });
@@ -50,8 +51,3 @@ axiosInstance.interceptors.response.use(
     return Promise.reject(error);
   }
 );
-
-module.exports = {
-  authInstance,
-  axiosInstance
-};

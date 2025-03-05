@@ -1,10 +1,10 @@
 /**
  * @typedef {import("module")} Module
- * 
+ *
  * @typedef {import("express").Request} Req
  * @typedef {import("express").Response} Res
  * @typedef {import("express").NextFunction} Next
- * 
+ *
  * @typedef {{
  * type: string,
  * is_local: boolean,
@@ -14,25 +14,25 @@
  * title?: string,
  * duration?: number
  * }} URIObject
- * 
+ *
  * @typedef {{
  * username: string,
  * uri: string
  * }} User
- * 
+ *
  * @typedef {{
  * name: string,
  * uri: string,
  * }} SimplifiedPlaylist
- * 
+ *
  * @typedef	{{
  * name: string
  * }} Album
- * 
+ *
  * @typedef	{{
  * name: string
  * }} Artist
- * 
+ *
  * @typedef {{
  * uri: string,
  * name: string,
@@ -40,18 +40,18 @@
  * album: Album,
  * is_local: boolean,
  * }} Track
- * 
+ *
  * @typedef {{
  * added_at: string,
  * track: Track,
  * }} PlaylistTrack
- * 
+ *
  * @typedef {{
  * url: string,
  * height: number,
  * width: number
  * }} ImageObject
- * 
+ *
  * @typedef {{
  * uri: string,
  * name: string,
@@ -64,4 +64,4 @@
  * }} PlaylistDetails
  */
 
-exports.unused = {};
+export default {};

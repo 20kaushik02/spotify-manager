@@ -1,6 +1,7 @@
-const { sessionName } = require("../constants");
-const typedefs = require("../typedefs");
-const logger = require("../utils/logger")(module);
+import { sessionName } from "../constants.js";
+import * as typedefs from "../typedefs.js";
+import curriedLogger from "../utils/logger.js";
+const logger = curriedLogger(import.meta);
 
 /**
  * middleware to check if access token is present
@@ -8,7 +9,7 @@ const logger = require("../utils/logger")(module);
  * @param {typedefs.Res} res
  * @param {typedefs.Next} next
  */
-const isAuthenticated = (req, res, next) => {
+export const isAuthenticated = (req, res, next) => {
   if (req.session.accessToken) {
     req.sessHeaders = {
       "Authorization": `Bearer ${req.session.accessToken}`,
@@ -29,8 +30,4 @@ const isAuthenticated = (req, res, next) => {
       }
     });
   }
-}
-
-module.exports = {
-  isAuthenticated,
 }

@@ -1,6 +1,7 @@
-const logger = require("./logger")(module);
+import curriedLogger from "./logger.js";
+const logger = curriedLogger(import.meta);
 
-const typedefs = require("../typedefs");
+import * as typedefs from "../typedefs.js";
 
 /**
  * Directed graph, may or may not be connected.
@@ -21,7 +22,7 @@ const typedefs = require("../typedefs");
  * console.log(g.detectCycle()); // true
  * ```
 */
-class myGraph {
+export class myGraph {
   /**
    * @param {string[]} nodes Graph nodes IDs
    * @param {{ from: string, to: string }[]} edges Graph edges b/w nodes
@@ -156,4 +157,4 @@ class myGraph {
   }
 }
 
-module.exports = myGraph;
+export default myGraph;

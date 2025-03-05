@@ -3,7 +3,7 @@
  * @param  {number} length The length of the string
  * @return {string} The generated string
  */
-module.exports = (length) => {
+export default (length) => {
   const possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   let text = "";
 

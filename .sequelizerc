@@ -1,6 +1,7 @@
-require("dotenv-flow").config();
+import dotenvFlow from "dotenv-flow";
+dotenvFlow.config();
 
-const path = require("path");
-module.exports = {
-  "config": path.resolve("config", "sequelize.js")
+import { resolve } from "path";
+export default {
+  "config": resolve("config", "sequelize.js")
 };

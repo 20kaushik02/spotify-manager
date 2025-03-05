@@ -5,7 +5,7 @@
  * @param {string} delimiter Delimiter of final string
  * @returns {string}
  */
-const getNestedValuesString = (obj, delimiter = ", ") => {
+export const getNestedValuesString = (obj, delimiter = ", ") => {
   let values = [];
   for (key in obj) {
     if (typeof obj[key] !== "object") {
@@ -16,8 +16,4 @@ const getNestedValuesString = (obj, delimiter = ", ") => {
   }
 
   return values.join(delimiter);
-}
-
-module.exports = {
-  getNestedValuesString
 }

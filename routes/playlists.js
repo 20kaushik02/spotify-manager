@@ -1,8 +1,10 @@
-const router = require("express").Router();
+import { Router } from "express";
+const router = Router();
 
-const { fetchUserPlaylists, fetchPlaylistDetails } = require("../controllers/playlists");
-const { getPlaylistDetailsValidator } = require("../validators/playlists");
-const { validate } = require("../validators");
+import { fetchUserPlaylists, fetchPlaylistDetails } from "../controllers/playlists.js";
+import { getPlaylistDetailsValidator } from "../validators/playlists.js";
+
+import { validate } from "../validators/index.js";
 
 router.get(
   "/me",
@@ -16,4 +18,4 @@ router.get(
   fetchPlaylistDetails
 );
 
-module.exports = router;
+export default router;

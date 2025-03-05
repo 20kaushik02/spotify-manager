@@ -1,12 +1,13 @@
-const logger = require("../utils/logger")(module);
+import curriedLogger from "../utils/logger.js";
+const logger = curriedLogger(import.meta);
 
-const typedefs = require("../typedefs");
+import * as typedefs from "../typedefs.js";
 
 /**
  * @param {typedefs.Req} req
  * @param {typedefs.Res} res
  */
-const __controller_func = async (req, res) => {
+export const __controller_func = async (req, res) => {
   try {
 
   } catch (error) {
@@ -15,7 +16,3 @@ const __controller_func = async (req, res) => {
     return;
   }
 }
-
-module.exports = {
-  __controller_func
-};
