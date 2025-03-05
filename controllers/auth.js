@@ -142,7 +142,7 @@ const refresh = async (req, res) => {
 const logout = async (req, res) => {
   try {
     const delSession = req.session.destroy((error) => {
-      if (error) {
+      if(Object.keys(error).length) {
         res.status(500).send({ message: "Internal Server Error" });
         logger.error("Error while logging out", { error });
         return;

@@ -7,7 +7,9 @@ const session = require("express-session");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const helmet = require("helmet");
-const SQLiteStore = require("connect-sqlite3")(session);
+
+const { createClient } = require('redis');
+const { RedisStore } = require("connect-redis");
 
 const { sessionName } = require("./constants");
 const db = require("./models");
@@ -22,16 +24,29 @@ const app = express();
 // Enable this if you run behind a proxy (e.g. nginx)
 app.set("trust proxy", process.env.TRUST_PROXY);
 
-// Configure SQLite store file
-const sqliteStore = new SQLiteStore({
-  table: "session_store",
-  db: "spotify-manager.db"
+// Configure Redis client and connect
+const redisClient = createClient({
+  socket: {
+    host: process.env.REDIS_HOST,
+    port: process.env.REDIS_PORT,
+  }
 });
+
+redisClient.connect()
+  .then(() => {
+    logger.info("Connected to Redis store");
+  })
+  .catch((error) => {
+    logger.error("Redis connection error", { error });
+    cleanupFunc();
+  });
+
+const redisStore = new RedisStore({ client: redisClient });
 
 // Configure session middleware
 app.use(session({
   name: sessionName,
-  store: sqliteStore,
+  store: redisStore,
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
@@ -103,6 +118,7 @@ const cleanupFunc = (signal) => {
     logger.debug(`${signal} signal received, shutting down now...`);
 
   Promise.allSettled([
+    redisClient.disconnect,
     db.sequelize.close(),
     util.promisify(server.close),
   ]).then(() => {

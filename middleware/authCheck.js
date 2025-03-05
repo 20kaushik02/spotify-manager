@@ -16,10 +16,10 @@ const isAuthenticated = (req, res, next) => {
     };
     next();
   } else {
-    const delSession = req.session.destroy((err) => {
-      if (err) {
+    const delSession = req.session.destroy((error) => {
+      if (Object.keys(error).length) {
         res.status(500).send({ message: "Internal Server Error" });
-        logger.error("session.destroy", { err });
+        logger.error("session.destroy", { error });
         return;
       } else {
         res.clearCookie(sessionName);
