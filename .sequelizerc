@@ -3,5 +3,5 @@ dotenvFlow.config();
 
 import { resolve } from "path";
 export default {
-  "config": resolve("config", "sequelize.js")
+  config: resolve("config", "sequelize.ts"),
 };
