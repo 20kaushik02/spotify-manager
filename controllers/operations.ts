@@ -30,8 +30,7 @@ import { redisClient } from "../config/redis.ts";
 import Playlists from "../models/playlists.ts";
 import Links from "../models/links.ts";
 
-import curriedLogger from "../utils/logger.ts";
-const logger = curriedLogger(import.meta.filename);
+import logger from "../utils/logger.ts";
 
 /**
  * Sync user's Spotify data

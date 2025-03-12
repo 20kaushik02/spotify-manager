@@ -6,8 +6,7 @@ import seqConfig from "../config/sequelize.ts";
 import links from "./links.ts";
 import playlists from "./playlists.ts";
 
-import curriedLogger from "../utils/logger.ts";
-const logger = curriedLogger(import.meta.filename);
+import logger from "../utils/logger.ts";
 
 if (!process.env["NODE_ENV"])
   throw new TypeError("Node environment not defined");

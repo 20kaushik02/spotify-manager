@@ -1,7 +1,6 @@
 import type { SequelizeOptions } from "sequelize-typescript";
 
-import curriedLogger from "../utils/logger.ts";
-const logger = curriedLogger(import.meta.filename);
+import logger from "../utils/logger.ts";
 
 type ConnConfigs = Record<string, SequelizeOptions>;
 

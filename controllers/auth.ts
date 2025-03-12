@@ -11,8 +11,7 @@ import type { RequestHandler } from "express";
 
 import { generateRandString } from "../utils/generateRandString.ts";
 
-import curriedLogger from "../utils/logger.ts";
-const logger = curriedLogger(import.meta.filename);
+import logger from "../utils/logger.ts";
 
 /**
  * Stateful redirect to Spotify login with credentials

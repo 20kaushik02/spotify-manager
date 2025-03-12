@@ -9,8 +9,7 @@ import type {
   SimplifiedPlaylistObject,
 } from "spotify_manager/index.d.ts";
 
-import curriedLogger from "../utils/logger.ts";
-const logger = curriedLogger(import.meta.filename);
+import logger from "../utils/logger.ts";
 
 /**
  * Get user's playlists

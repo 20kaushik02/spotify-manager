@@ -4,8 +4,7 @@ import type { RequestHandler } from "express";
 
 import { getNestedValuesString } from "../utils/jsonTransformer.ts";
 
-import curriedLogger from "../utils/logger.ts";
-const logger = curriedLogger(import.meta.filename);
+import logger from "../utils/logger.ts";
 
 /** Refer: https://stackoverflow.com/questions/58848625/access-messages-in-express-validator */
 export const validate: RequestHandler = (req, res, next) => {

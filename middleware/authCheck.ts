@@ -3,8 +3,7 @@ import type { RequestHandler } from "express";
 
 import { sessionName } from "../constants.ts";
 
-import curriedLogger from "../utils/logger.ts";
-const logger = curriedLogger(import.meta.filename);
+import logger from "../utils/logger.ts";
 
 export const isAuthenticated: RequestHandler = (req, res, next) => {
   if (req.session.accessToken) {

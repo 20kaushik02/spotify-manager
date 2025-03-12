@@ -1,8 +1,7 @@
 import { createClient } from "redis";
 
 import { sleep } from "../utils/flake.ts";
-import curriedLogger from "../utils/logger.ts";
-const logger = curriedLogger(import.meta.filename);
+import logger from "../utils/logger.ts";
 
 if (!process.env["REDIS_URI"])
   throw new TypeError("Redis connection URI not defined");

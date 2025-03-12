@@ -1,9 +1,7 @@
 // TODO: rate limit module is busted (CJS types), do something for rate limiting
 import axios, { type AxiosInstance } from "axios";
 import { baseAPIURL, accountsAPIURL } from "../constants.ts";
-import curriedLogger from "../utils/logger.ts";
-
-const logger = curriedLogger(import.meta.filename);
+import logger from "../utils/logger.ts";
 
 const authInstance: AxiosInstance = axios.create({
   baseURL: accountsAPIURL,

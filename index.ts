@@ -22,8 +22,7 @@ import authRoutes from "./routes/auth.ts";
 import playlistRoutes from "./routes/playlists.ts";
 import operationRoutes from "./routes/operations.ts";
 
-import curriedLogger from "./utils/logger.ts";
-const logger = curriedLogger(import.meta.filename);
+import logger from "./utils/logger.ts";
 
 const app = express();
 
@@ -131,7 +130,7 @@ const cleanupFunc = (signal?: string) => {
 
   Promise.allSettled([
     redisClient.disconnect,
-    seqConn.close(),
+    seqConn.close,
     promisify(server.close),
   ]).then(() => {
     logger.info("Cleaned up, exiting.");

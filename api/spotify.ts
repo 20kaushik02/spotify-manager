@@ -1,5 +1,4 @@
 import { axiosInstance } from "./axios.ts";
-import curriedLogger from "../utils/logger.ts";
 
 import { type AxiosResponse, type AxiosRequestConfig } from "axios";
 import type {
@@ -14,7 +13,7 @@ import type {
   Res,
 } from "spotify_manager/index.d.ts";
 
-const logger = curriedLogger(import.meta.filename);
+import logger from "../utils/logger.ts";
 
 const logPrefix = "Spotify API: ";
 enum allowedMethods {
