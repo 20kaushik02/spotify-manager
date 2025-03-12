@@ -24,6 +24,8 @@ import myGraph from "../utils/graph.ts";
 import { parseSpotifyLink } from "../utils/spotifyUriTransformer.ts";
 // import { randomBool, sleep } from "../utils/flake.ts";
 
+import { redisClient } from "../config/redis.ts";
+
 // load db models
 import Playlists from "../models/playlists.ts";
 import Links from "../models/links.ts";
@@ -411,12 +413,12 @@ interface _GetPlaylistTracks {
     is_local: boolean;
     uri: string;
   }[];
-  snapshot_id: string;
+  snapshotID: string;
 }
 const _getPlaylistTracks: (
   opts: _GetPlaylistTracksArgs
 ) => Promise<_GetPlaylistTracks | null> = async ({ req, res, playlistID }) => {
-  let initialFields = ["tracks(next,items(is_local,track(uri)))"];
+  let initialFields = ["snapshot_id,tracks(next,items(is_local,track(uri)))"];
   let mainFields = ["next", "items(is_local,track(uri))"];
 
   const respData = await getPlaylistDetailsFirstPage({
@@ -427,13 +429,23 @@ const _getPlaylistTracks: (
   });
   if (!respData) return null;
 
+  // check cache
+  const cachedSnapshotID = await redisClient.get(
+    "playlist_snapshot:" + playlistID
+  );
+  if (cachedSnapshotID === respData.snapshot_id) {
+    const cachedTracksData = (await redisClient.json.get(
+      "playlist_tracks:" + playlistID
+    )) as _GetPlaylistTracks["tracks"];
+    return { tracks: cachedTracksData, snapshotID: cachedSnapshotID };
+  }
+
   const pl: _GetPlaylistTracks = {
     tracks: [],
-    snapshot_id: respData.snapshot_id,
+    snapshotID: respData.snapshot_id,
   };
   let nextURL;
 
-  // varying fields again smh
   if (respData.tracks.next) {
     nextURL = new URL(respData.tracks.next);
     nextURL.searchParams.set("fields", mainFields.join());
@@ -466,6 +478,13 @@ const _getPlaylistTracks: (
 
     nextURL = nextData.next;
   }
+
+  // cache new data
+  await redisClient.set(
+    "playlist_snapshot:" + playlistID,
+    respData.snapshot_id
+  );
+  await redisClient.json.set("playlist_tracks:" + playlistID, "$", pl.tracks);
 
   return pl;
 };
@@ -662,7 +681,7 @@ const _pruneSingleLinkCore: (
     const toDelNum = indexes.length;
 
     // remove in batches of 100 (from reverse, to preserve positions while modifying)
-    let currentSnapshot = toPlaylist.snapshot_id;
+    let currentSnapshot = toPlaylist.snapshotID;
     while (indexes.length > 0) {
       const nextBatch = indexes.splice(Math.max(indexes.length - 100, 0), 100);
       const delResponse = await removePlaylistItems({

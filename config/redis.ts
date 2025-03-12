@@ -1,7 +1,7 @@
 import { createClient } from "redis";
 
-import curriedLogger from "../utils/logger.ts";
 import { sleep } from "../utils/flake.ts";
+import curriedLogger from "../utils/logger.ts";
 const logger = curriedLogger(import.meta.filename);
 
 if (!process.env["REDIS_URI"])

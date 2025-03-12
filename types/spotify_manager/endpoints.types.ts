@@ -25,6 +25,11 @@ import type {
   UserObject,
 } from "./objects.types.ts";
 
+// TODO: the data that actually gets retrieved from Spotify
+// depends on the fields I pass as parameters to the API
+// so... technically all fields are optional? but that's so
+// horrible...
+
 // GET method
 // Albums
 export type GetAlbum = AlbumObject;
