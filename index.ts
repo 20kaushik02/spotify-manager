@@ -8,14 +8,19 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
 
-import { createClient } from "redis";
 import { RedisStore } from "connect-redis";
+
+import { redisClient } from "./config/redis.ts";
 
 import { sessionName } from "./constants.ts";
 import seqConn from "./models/index.ts";
 
 import { isAuthenticated } from "./middleware/authCheck.ts";
 import { getCurrentUsersProfile } from "./api/spotify.ts";
+
+import authRoutes from "./routes/auth.ts";
+import playlistRoutes from "./routes/playlists.ts";
+import operationRoutes from "./routes/operations.ts";
 
 import curriedLogger from "./utils/logger.ts";
 const logger = curriedLogger(import.meta.filename);
@@ -29,33 +34,12 @@ if (
 ) {
   throw new TypeError("TRUST_PROXY must be 0 or 1");
 }
-if (isNaN(Number(process.env["REDIS_PORT"]))) {
-  throw new TypeError("REDIS_PORT must be a number");
-}
 if (!process.env["SESSION_SECRET"]) {
   throw new TypeError("SESSION_SECRET cannot be undefined");
 }
 
 // Enable this if you run behind a proxy (e.g. nginx)
 app.set("trust proxy", process.env["TRUST_PROXY"]);
-
-// Configure Redis client and connect
-const redisClient = createClient({
-  socket: {
-    host: process.env["REDIS_HOST"],
-    port: Number(process.env["REDIS_PORT"]),
-  },
-});
-
-redisClient
-  .connect()
-  .then(() => {
-    logger.info("Connected to Redis store");
-  })
-  .catch((error) => {
-    logger.error("Redis connection error", { error });
-    cleanupFunc();
-  });
 
 const redisStore = new RedisStore({ client: redisClient });
 
@@ -119,9 +103,7 @@ app.use("/auth-health", isAuthenticated, async (req, res) => {
     return null;
   }
 });
-import authRoutes from "./routes/auth.ts";
-import playlistRoutes from "./routes/playlists.ts";
-import operationRoutes from "./routes/operations.ts";
+
 // Routes
 app.use("/api/auth/", authRoutes);
 app.use("/api/playlists", isAuthenticated, playlistRoutes);
