@@ -3,7 +3,7 @@ const authRouter: Router = Router();
 
 import { login, callback, refresh, logout } from "../controllers/auth.ts";
 import { isAuthenticated } from "../middleware/authCheck.ts";
-import { validate } from "../validators/index.ts";
+// import { validate } from "../validators/index.ts";
 
 authRouter.get("/login", login);
 

@@ -3,7 +3,7 @@ const router: Router = Router();
 
 import { fetchUserPlaylists } from "../controllers/playlists.ts";
 
-import { validate } from "../validators/index.ts";
+// import { validate } from "../validators/index.ts";
 
 router.get("/me", fetchUserPlaylists);
 
