@@ -12,7 +12,7 @@ import {
 
 import type { RequestHandler } from "express";
 import type {
-  EndpointHandlerBaseArgs,
+  EndpointHandlerWithResArgs,
   LinkModel_Edge,
   PlaylistModel_Pl,
   URIObject,
@@ -47,11 +47,12 @@ const updateUser: RequestHandler = async (req, res) => {
     let currentPlaylists: PlaylistModel_Pl[] = [];
 
     // get first 50
-    const respData = await getCurrentUsersPlaylistsFirstPage({
+    const { resp } = await getCurrentUsersPlaylistsFirstPage({
       authHeaders,
       res,
     });
-    if (!respData) return null;
+    if (!resp) return null;
+    const respData = resp.data;
 
     currentPlaylists = respData.items.map((playlist) => {
       return {
@@ -63,12 +64,13 @@ const updateUser: RequestHandler = async (req, res) => {
 
     // keep getting batches of 50 till exhausted
     while (nextURL) {
-      const nextData = await getCurrentUsersPlaylistsNextPage({
+      const { resp } = await getCurrentUsersPlaylistsNextPage({
         authHeaders,
         res,
         nextURL,
       });
-      if (!nextData) return null;
+      if (!resp) return null;
+      const nextData = resp.data;
 
       currentPlaylists.push(
         ...nextData.items.map((playlist) => {
@@ -411,7 +413,7 @@ const removeLink: RequestHandler = async (req, res) => {
   }
 };
 
-interface _GetPlaylistTracksArgs extends EndpointHandlerBaseArgs {
+interface _GetPlaylistTracksArgs extends EndpointHandlerWithResArgs {
   playlistID: string;
 }
 interface _GetPlaylistTracks {
@@ -431,13 +433,14 @@ const _getPlaylistTracks: (
   let initialFields = ["snapshot_id,tracks(next,items(is_local,track(uri)))"];
   let mainFields = ["next", "items(is_local,track(uri))"];
 
-  const respData = await getPlaylistDetailsFirstPage({
+  const { resp } = await getPlaylistDetailsFirstPage({
     authHeaders,
     res,
     initialFields: initialFields.join(),
     playlistID,
   });
-  if (!respData) return null;
+  if (!resp) return null;
+  const respData = resp.data;
 
   // check cache
   const cachedSnapshotID = await redisClient.get(
@@ -470,12 +473,13 @@ const _getPlaylistTracks: (
 
   // keep getting batches of 50 till exhausted
   while (nextURL) {
-    const nextData = await getPlaylistDetailsNextPage({
+    const { resp } = await getPlaylistDetailsNextPage({
       authHeaders,
       res,
       nextURL,
     });
-    if (!nextData) return null;
+    if (!resp) return null;
+    const nextData = resp.data;
 
     pl.tracks.push(
       ...nextData.items.map((playlist_item) => {
@@ -499,7 +503,7 @@ const _getPlaylistTracks: (
   return pl;
 };
 
-interface _PopulateSingleLinkCoreArgs extends EndpointHandlerBaseArgs {
+interface _PopulateSingleLinkCoreArgs extends EndpointHandlerWithResArgs {
   link: {
     from: URIObject;
     to: URIObject;
@@ -522,29 +526,29 @@ interface _PopulateSingleLinkCoreArgs extends EndpointHandlerBaseArgs {
  *
  * CANNOT populate local files; Spotify API does not support it yet.
  */
-const _populateSingleLinkCore: (
-  opts: _PopulateSingleLinkCoreArgs
-) => Promise<{ toAddNum: number; localNum: number } | null> = async ({
-  authHeaders,
-  res,
-  link,
-}) => {
+const _populateSingleLinkCore: (opts: _PopulateSingleLinkCoreArgs) => Promise<{
+  toAddNum: number;
+  addedNum: number;
+  localNum: number;
+} | null> = async ({ res, authHeaders, link }) => {
   try {
     const fromPl = link.from,
       toPl = link.to;
 
     const fromPlaylist = await _getPlaylistTracks({
-      authHeaders,
       res,
+      authHeaders,
       playlistID: fromPl.id,
     });
+    if (!fromPlaylist) return null;
+
     const toPlaylist = await _getPlaylistTracks({
-      authHeaders,
       res,
+      authHeaders,
       playlistID: toPl.id,
     });
+    if (!toPlaylist) return null;
 
-    if (!fromPlaylist || !toPlaylist) return null;
     const fromTrackURIs = fromPlaylist.tracks.map((track) => track.uri);
     let toTrackURIs = toPlaylist.tracks
       .filter((track) => !track.is_local) // API doesn't support adding local files to playlists yet
@@ -553,20 +557,21 @@ const _populateSingleLinkCore: (
 
     const toAddNum = toTrackURIs.length;
     const localNum = toPlaylist.tracks.filter((track) => track.is_local).length;
+    let addedNum = 0;
 
     // append to end in batches of 100
     while (toTrackURIs.length > 0) {
       const nextBatch = toTrackURIs.splice(0, 100);
-      const addData = await addItemsToPlaylist({
+      const { resp } = await addItemsToPlaylist({
         authHeaders,
-        res,
         nextBatch,
         playlistID: fromPl.id,
       });
-      if (!addData) return null;
+      if (!resp) break;
+      addedNum += nextBatch.length;
     }
 
-    return { toAddNum, localNum };
+    return { toAddNum, addedNum, localNum };
   } catch (error) {
     res.status(500).send({ message: "Internal Server Error" });
     logger.error("_populateSingleLinkCore", { error });
@@ -612,12 +617,14 @@ const populateSingleLink: RequestHandler = async (req, res) => {
     }
 
     if (
-      !(await checkPlaylistEditable({
-        authHeaders,
-        res,
-        playlistID: fromPl.id,
-        userID: uID,
-      }))
+      !(
+        await checkPlaylistEditable({
+          authHeaders,
+          res,
+          playlistID: fromPl.id,
+          userID: uID,
+        })
+      ).status
     )
       return null;
 
@@ -627,15 +634,18 @@ const populateSingleLink: RequestHandler = async (req, res) => {
       link: { from: fromPl, to: toPl },
     });
     if (result) {
-      const { toAddNum, localNum } = result;
-      let logMsg;
-      logMsg =
-        toAddNum > 0 ? "Added " + toAddNum + " tracks" : "No tracks to add";
-      logMsg +=
-        localNum > 0 ? "; could not process " + localNum + " local files" : ".";
+      const { toAddNum, addedNum, localNum } = result;
+      let message;
+      message =
+        toAddNum > 0 ? "Added " + addedNum + " tracks" : "No tracks to add";
+      message +=
+        addedNum < toAddNum
+          ? ", failed to add " + (toAddNum - addedNum) + " tracks"
+          : "";
+      message += localNum > 0 ? ", skipped " + localNum + " local files" : ".";
 
-      res.status(200).send({ message: logMsg });
-      logger.debug(logMsg, { toAddNum, localNum });
+      res.status(200).send({ message, toAddNum, addedNum, localNum });
+      logger.debug(message, { toAddNum, localNum });
     }
     return null;
   } catch (error) {
@@ -645,7 +655,7 @@ const populateSingleLink: RequestHandler = async (req, res) => {
   }
 };
 
-interface _PruneSingleLinkCoreArgs extends EndpointHandlerBaseArgs {
+interface _PruneSingleLinkCoreArgs extends EndpointHandlerWithResArgs {
   link: { from: URIObject; to: URIObject };
 }
 /**
@@ -665,7 +675,7 @@ interface _PruneSingleLinkCoreArgs extends EndpointHandlerBaseArgs {
  */
 const _pruneSingleLinkCore: (
   opts: _PruneSingleLinkCoreArgs
-) => Promise<{ toDelNum: number } | null> = async ({
+) => Promise<{ toDelNum: number; deletedNum: number } | null> = async ({
   authHeaders,
   res,
   link,
@@ -679,13 +689,15 @@ const _pruneSingleLinkCore: (
       res,
       playlistID: fromPl.id,
     });
+    if (!fromPlaylist) return null;
+
     const toPlaylist = await _getPlaylistTracks({
       authHeaders,
       res,
       playlistID: toPl.id,
     });
+    if (!toPlaylist) return null;
 
-    if (!fromPlaylist || !toPlaylist) return null;
     const fromTrackURIs = fromPlaylist.tracks.map((track) => track.uri);
     const indexedToTrackURIs = toPlaylist.tracks.map((track, index) => {
       return { ...track, position: index };
@@ -696,23 +708,24 @@ const _pruneSingleLinkCore: (
       .map((track) => track.position); // get track positions
 
     const toDelNum = indexes.length;
+    let deletedNum = 0;
 
     // remove in batches of 100 (from reverse, to preserve positions while modifying)
     let currentSnapshot = toPlaylist.snapshotID;
     while (indexes.length > 0) {
       const nextBatch = indexes.splice(Math.max(indexes.length - 100, 0), 100);
-      const delResponse = await removePlaylistItems({
+      const { resp } = await removePlaylistItems({
         authHeaders,
-        res,
         nextBatch,
         playlistID: toPl.id,
         snapshotID: currentSnapshot,
       });
-      if (!delResponse) return null;
-      currentSnapshot = delResponse.snapshot_id;
+      if (!resp) break;
+      deletedNum += nextBatch.length;
+      currentSnapshot = resp.data.snapshot_id;
     }
 
-    return { toDelNum };
+    return { toDelNum, deletedNum };
   } catch (error) {
     res.status(500).send({ message: "Internal Server Error" });
     logger.error("_pruneSingleLinkCore", { error });
@@ -758,12 +771,14 @@ const pruneSingleLink: RequestHandler = async (req, res) => {
     }
 
     if (
-      !(await checkPlaylistEditable({
-        authHeaders,
-        res,
-        playlistID: toPl.id,
-        userID: uID,
-      }))
+      !(
+        await checkPlaylistEditable({
+          authHeaders,
+          res,
+          playlistID: toPl.id,
+          userID: uID,
+        })
+      ).status
     )
       return null;
 
@@ -776,9 +791,19 @@ const pruneSingleLink: RequestHandler = async (req, res) => {
       },
     });
     if (result) {
-      const { toDelNum } = result;
-      res.status(200).send({ message: `Removed ${toDelNum} tracks.` });
-      logger.debug(`Pruned ${toDelNum} tracks`, { toDelNum });
+      const { toDelNum, deletedNum } = result;
+      let message;
+      message =
+        toDelNum > 0
+          ? "Removed " + deletedNum + " tracks"
+          : "No tracks to remove";
+      message +=
+        deletedNum < toDelNum
+          ? ", failed to remove " + (toDelNum - deletedNum) + " tracks"
+          : ".";
+
+      res.status(200).send({ message, toDelNum, deletedNum });
+      logger.debug(message, { toDelNum, deletedNum });
     }
     return null;
   } catch (error) {

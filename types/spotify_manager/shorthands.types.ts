@@ -7,5 +7,7 @@ export type Next = NextFunction;
 
 export interface EndpointHandlerBaseArgs {
   authHeaders: RawAxiosRequestHeaders;
+}
+export interface EndpointHandlerWithResArgs extends EndpointHandlerBaseArgs {
   res: Res;
 }

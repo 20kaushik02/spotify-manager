@@ -94,8 +94,8 @@ app.use("/auth-health", isAuthenticated, async (req, res) => {
     const { authHeaders } = req.session;
     if (!authHeaders)
       throw new ReferenceError("session does not have auth headers");
-    const respData = await getCurrentUsersProfile({ authHeaders, res });
-    if (!respData) return null;
+    const { resp } = await getCurrentUsersProfile({ authHeaders, res });
+    if (!resp) return null;
     res.status(200).send({ message: "OK" });
     return null;
   } catch (error) {
@@ -130,9 +130,7 @@ const server = app.listen(port, () => {
 const cleanupFunc = (signal?: string) => {
   if (signal) logger.debug(`${signal} signal received, shutting down now...`);
 
-  Promise.allSettled([
-    promisify(server.close),
-  ]).then(() => {
+  Promise.allSettled([promisify(server.close)]).then(() => {
     logger.info("Cleaned up, exiting.");
     process.exit(0);
   });

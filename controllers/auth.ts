@@ -21,14 +21,12 @@ const login: RequestHandler = async (_req, res) => {
     const state = generateRandString(16);
     res.cookie(stateKey, state);
 
-    const scope = Object.values(requiredScopes).join(" ");
-
     res.redirect(
       `${accountsAPIURL}/authorize?` +
         new URLSearchParams({
           response_type: "code",
           client_id: process.env["CLIENT_ID"],
-          scope: scope,
+          scope: Object.values(requiredScopes).join(" "),
           redirect_uri: process.env["REDIRECT_URI"],
           state: state,
         } as Record<string, string>).toString()
@@ -88,17 +86,20 @@ const callback: RequestHandler = async (req, res) => {
         return null;
       }
 
-      const userData = await getCurrentUsersProfile({ authHeaders, res });
-      if (!userData) return null;
+      const { resp } = await getCurrentUsersProfile({
+        res,
+        authHeaders,
+      });
+      if (!resp) return null;
 
       req.session.user = {
-        username: userData.display_name ?? "",
-        id: userData.id,
+        username: resp.data.display_name ?? "",
+        id: resp.data.id,
       };
 
       // res.status(200).send({ message: "OK" });
       res.redirect(process.env["APP_URI"] + "?login=success");
-      logger.debug("New login.", { username: userData.display_name });
+      logger.debug("New login.", { username: resp.data.display_name });
       return null;
     }
   } catch (error) {
@@ -141,7 +142,10 @@ const refresh: RequestHandler = async (req, res) => {
       res
         .status(response.status)
         .send({ message: "Error: Refresh token flow failed." });
-      logger.error("refresh failed", { statusCode: response.status });
+      logger.error("refresh failed", {
+        statusCode: response.status,
+        data: response.data,
+      });
       return null;
     }
   } catch (error) {

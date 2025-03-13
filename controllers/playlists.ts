@@ -20,29 +20,29 @@ const fetchUserPlaylists: RequestHandler = async (req, res) => {
     if (!authHeaders)
       throw new ReferenceError("session does not have auth headers");
     // get first 50
-    const respData = await getCurrentUsersPlaylistsFirstPage({
-      authHeaders,
+    const { resp } = await getCurrentUsersPlaylistsFirstPage({
       res,
+      authHeaders,
     });
-    if (!respData) return null;
+    if (!resp) return null;
 
-    let tmpData = structuredClone(respData);
     const userPlaylists: Pick<
       Pagination<SimplifiedPlaylistObject>,
       "items" | "total"
     > = {
-      items: [...tmpData.items],
-      total: tmpData.total,
+      items: [...resp.data.items],
+      total: resp.data.total,
     };
-    let nextURL = respData.next;
+    let nextURL = resp.data.next;
     // keep getting batches of 50 till exhausted
     while (nextURL) {
-      const nextData = await getCurrentUsersPlaylistsNextPage({
+      const { resp } = await getCurrentUsersPlaylistsNextPage({
         authHeaders,
         res,
         nextURL,
       });
-      if (!nextData) return null;
+      if (!resp) return null;
+      const nextData = resp.data;
 
       userPlaylists.items.push(...nextData.items);
       nextURL = nextData.next;

@@ -6,13 +6,14 @@ import {
   type RawAxiosRequestHeaders,
 } from "axios";
 import type {
-  AddItemsToPlaylist,
+  AddItemsToPlaylistData,
   EndpointHandlerBaseArgs,
-  GetCurrentUsersPlaylists,
-  GetCurrentUsersProfile,
-  GetPlaylist,
-  GetPlaylistItems,
-  RemovePlaylistItems,
+  EndpointHandlerWithResArgs,
+  GetCurrentUsersPlaylistsData,
+  GetCurrentUsersProfileData,
+  GetPlaylistData,
+  GetPlaylistItemsData,
+  RemovePlaylistItemsData,
   Res,
 } from "spotify_manager/index.d.ts";
 
@@ -26,25 +27,41 @@ enum allowedMethods {
   Delete = "delete",
 }
 
+type SingleRequestArgs = {
+  /** Express response object. If set, send error responses from handler itself */
+  res?: Res;
+  /** mainly the `Authorization` header, could be extended later to account for custom headers, maybe rate-limiting stuff? */
+  authHeaders: RawAxiosRequestHeaders;
+  /** HTTP method */
+  method?: allowedMethods;
+  /** relative request path (from `/api/v1`) */
+  path: string;
+  /** request params, headers, etc. */
+  config?: AxiosRequestConfig;
+  /** request body */
+  data?: any;
+  /** true if `data` is to be placed inside config (say, axios' delete method) */
+  inlineData?: boolean;
+};
+
+type SingleRequestResult<RespDataType> = Promise<{
+  resp?: AxiosResponse<RespDataType, any>;
+  error?: any;
+  message: string;
+}>;
+
 /**
- * Spotify API - one-off request handler
- * @param req convenient auto-placing headers from middleware (not a good approach?)
- * @param res handle failure responses here itself (not a good approach?)
- * @param method HTTP method
- * @param path request path
- * @param config request params, headers, etc.
- * @param data request body
- * @param inlineData true if `data` is to be placed inside config (say, axios' delete method)
+ * Spotify API (v1) - one-off request handler
  */
-const singleRequest = async <RespDataType>(
-  authHeaders: RawAxiosRequestHeaders,
-  res: Res,
-  method: allowedMethods,
-  path: string,
-  config: AxiosRequestConfig = {},
-  data: any = null,
-  inlineData: boolean = false
-): Promise<AxiosResponse<RespDataType, any> | null> => {
+const singleRequest = async <RespDataType>({
+  res,
+  authHeaders,
+  method = allowedMethods.Get,
+  path,
+  config = {},
+  data = null,
+  inlineData = false,
+}: SingleRequestArgs): SingleRequestResult<RespDataType> => {
   let resp: AxiosResponse<RespDataType, any>;
   config.headers = { ...config.headers, ...authHeaders };
   try {
@@ -55,160 +72,138 @@ const singleRequest = async <RespDataType>(
       resp = await axiosInstance[method](path, data, config);
     }
     logger.debug(logPrefix + "Successful response received.");
-    return resp;
+    return { resp, message: "" };
   } catch (error: any) {
+    let message = logPrefix;
     if (error.response) {
       // Non 2XX response received
-      let logMsg;
-      if (error.response.status >= 400 && error.response.status < 600) {
-        res.status(error.response.status).send(error.response.data);
-        logMsg = "" + error.response.status;
-      } else {
-        res.sendStatus(error.response.status);
-        logMsg = "???";
-      }
-      logger.warn(logPrefix + logMsg, {
+      message = message.concat(
+        `${error.response.status} - ${error.response.data?.message}`
+      );
+      res?.status(error.response.status).send(error.response.data);
+      logger.warn(message, {
         response: {
           data: error.response.data,
           status: error.response.status,
         },
       });
+      return { error, message };
     } else if (error.request) {
-      // No response received
-      res.status(504).send({ message: "No response from Spotify" });
-      logger.error(logPrefix + "No response", { error });
+      // Request sent, but no response received
+      message = message.concat("No response");
+      res?.status(504).send({ message });
+      logger.error(message, { error });
+      return { error, message };
     } else {
       // Something happened in setting up the request that triggered an Error
-      res.status(500).send({ message: "Internal Server Error" });
-      logger.error(logPrefix + "Request failed?", { error });
+      message = message.concat("Request failed");
+      res?.status(500).send({ message: "Internal Server Error" });
+      logger.error(message, { error });
+      return { error, message };
     }
-
-    return null;
   }
 };
 
-interface GetCurrentUsersProfileArgs extends EndpointHandlerBaseArgs {}
+interface GetCurrentUsersProfileArgs extends EndpointHandlerWithResArgs {}
+type GetCurrentUsersProfile = SingleRequestResult<GetCurrentUsersProfileData>;
 const getCurrentUsersProfile: (
   opts: GetCurrentUsersProfileArgs
-) => Promise<GetCurrentUsersProfile | null> = async ({ authHeaders, res }) => {
-  const response = await singleRequest<GetCurrentUsersProfile>(
-    authHeaders,
+) => GetCurrentUsersProfile = async ({ res, authHeaders }) => {
+  return await singleRequest<GetCurrentUsersProfileData>({
     res,
-    allowedMethods.Get,
-    "/me"
-  );
-  return response ? response.data : null;
+    authHeaders,
+    path: "/me",
+  });
 };
 
 interface GetCurrentUsersPlaylistsFirstPageArgs
-  extends EndpointHandlerBaseArgs {}
+  extends EndpointHandlerWithResArgs {}
+type GetCurrentUsersPlaylists =
+  SingleRequestResult<GetCurrentUsersPlaylistsData>;
 const getCurrentUsersPlaylistsFirstPage: (
   opts: GetCurrentUsersPlaylistsFirstPageArgs
-) => Promise<GetCurrentUsersPlaylists | null> = async ({
-  authHeaders,
-  res,
-}) => {
-  const response = await singleRequest<GetCurrentUsersPlaylists>(
-    authHeaders,
+) => GetCurrentUsersPlaylists = async ({ res, authHeaders }) => {
+  return await singleRequest<GetCurrentUsersPlaylistsData>({
     res,
-    allowedMethods.Get,
-    `/me/playlists`,
-    {
+    authHeaders,
+    path: `/me/playlists`,
+    config: {
       params: {
         offset: 0,
         limit: 50,
       },
-    }
-  );
-  return response?.data ?? null;
+    },
+  });
 };
 
-interface GetCurrentUsersPlaylistsNextPageArgs extends EndpointHandlerBaseArgs {
+interface GetCurrentUsersPlaylistsNextPageArgs
+  extends EndpointHandlerWithResArgs {
   nextURL: string;
 }
 const getCurrentUsersPlaylistsNextPage: (
   opts: GetCurrentUsersPlaylistsNextPageArgs
-) => Promise<GetCurrentUsersPlaylists | null> = async ({
-  authHeaders,
-  res,
-  nextURL,
-}) => {
-  const response = await singleRequest<GetCurrentUsersPlaylists>(
-    authHeaders,
+) => GetCurrentUsersPlaylists = async ({ res, authHeaders, nextURL }) => {
+  return await singleRequest<GetCurrentUsersPlaylistsData>({
     res,
-    allowedMethods.Get,
-    nextURL
-  );
-  return response?.data ?? null;
+    authHeaders,
+    path: nextURL,
+  });
 };
 
-interface GetPlaylistDetailsFirstPageArgs extends EndpointHandlerBaseArgs {
+interface GetPlaylistDetailsFirstPageArgs extends EndpointHandlerWithResArgs {
   initialFields: string;
   playlistID: string;
 }
+type GetPlaylistDetailsFirstPage = SingleRequestResult<GetPlaylistData>;
 const getPlaylistDetailsFirstPage: (
   opts: GetPlaylistDetailsFirstPageArgs
-) => Promise<GetPlaylist | null> = async ({
-  authHeaders,
+) => GetPlaylistDetailsFirstPage = async ({
   res,
+  authHeaders,
   initialFields,
   playlistID,
 }) => {
-  const response = await singleRequest<GetPlaylist>(
+  return await singleRequest<GetPlaylistData>({
     authHeaders,
     res,
-    allowedMethods.Get,
-    `/playlists/${playlistID}/`,
-    {
+    path: `/playlists/${playlistID}/`,
+    config: {
       params: {
         fields: initialFields,
       },
-    }
-  );
-  return response?.data ?? null;
+    },
+  });
 };
 
-interface GetPlaylistDetailsNextPageArgs extends EndpointHandlerBaseArgs {
+interface GetPlaylistDetailsNextPageArgs extends EndpointHandlerWithResArgs {
   nextURL: string;
 }
+type GetPlaylistItems = SingleRequestResult<GetPlaylistItemsData>;
 const getPlaylistDetailsNextPage: (
   opts: GetPlaylistDetailsNextPageArgs
-) => Promise<GetPlaylistItems | null> = async ({
-  authHeaders,
-  res,
-  nextURL,
-}) => {
-  const response = await singleRequest<GetPlaylistItems>(
-    authHeaders,
+) => GetPlaylistItems = async ({ res, authHeaders, nextURL }) => {
+  return await singleRequest<GetPlaylistItemsData>({
     res,
-    allowedMethods.Get,
-    nextURL
-  );
-  return response?.data ?? null;
+    authHeaders,
+    path: nextURL,
+  });
 };
 
 interface AddItemsToPlaylistArgs extends EndpointHandlerBaseArgs {
   nextBatch: string[];
   playlistID: string;
 }
+type AddItemsToPlaylist = SingleRequestResult<AddItemsToPlaylistData>;
 const addItemsToPlaylist: (
   opts: AddItemsToPlaylistArgs
-) => Promise<AddItemsToPlaylist | null> = async ({
-  authHeaders,
-  res,
-  nextBatch,
-  playlistID,
-}) => {
-  const response = await singleRequest<AddItemsToPlaylist>(
+) => AddItemsToPlaylist = async ({ authHeaders, nextBatch, playlistID }) => {
+  return await singleRequest<AddItemsToPlaylistData>({
     authHeaders,
-    res,
-    allowedMethods.Post,
-    `/playlists/${playlistID}/tracks`,
-    {},
-    { uris: nextBatch },
-    false
-  );
-  return response?.data ?? null;
+    method: allowedMethods.Post,
+    path: `/playlists/${playlistID}/tracks`,
+    data: { uris: nextBatch },
+    inlineData: false,
+  });
 };
 
 interface RemovePlaylistItemsArgs extends EndpointHandlerBaseArgs {
@@ -216,66 +211,67 @@ interface RemovePlaylistItemsArgs extends EndpointHandlerBaseArgs {
   playlistID: string;
   snapshotID: string;
 }
+type RemovePlaylistItems = SingleRequestResult<RemovePlaylistItemsData>;
 const removePlaylistItems: (
   opts: RemovePlaylistItemsArgs
-) => Promise<RemovePlaylistItems | null> = async ({
+) => RemovePlaylistItems = async ({
   authHeaders,
-  res,
   nextBatch,
   playlistID,
   snapshotID,
 }) => {
   // API doesn't document this kind of deletion via the 'positions' field
-  // but see here: https://github.com/spotipy-dev/spotipy/issues/95#issuecomment-2263634801
-  const response = await singleRequest<RemovePlaylistItems>(
+  // but see here: https://web.archive.org/web/20250313173723/https://github.com/spotipy-dev/spotipy/issues/95#issuecomment-2263634801
+  return await singleRequest<RemovePlaylistItemsData>({
     authHeaders,
-    res,
-    allowedMethods.Delete,
-    `/playlists/${playlistID}/tracks`,
-    {},
+    method: allowedMethods.Delete,
+    path: `/playlists/${playlistID}/tracks`,
     // axios delete method doesn't have separate arg for body so hv to put it in config
-    { positions: nextBatch, snapshot_id: snapshotID },
-    true
-  );
-  return response?.data ?? null;
+    data: { positions: nextBatch, snapshot_id: snapshotID },
+    inlineData: true,
+  });
 };
 
 // ---------
 // non-endpoints, i.e. convenience wrappers
 // ---------
 
-interface CheckPlaylistEditableArgs extends EndpointHandlerBaseArgs {
+interface CheckPlaylistEditableArgs extends EndpointHandlerWithResArgs {
   playlistID: string;
   userID: string;
 }
+type CheckPlaylistEditable = Promise<{
+  status: boolean;
+  error?: any;
+  message: string;
+}>;
 const checkPlaylistEditable: (
   opts: CheckPlaylistEditableArgs
-) => Promise<boolean> = async ({ authHeaders, res, playlistID, userID }) => {
+) => CheckPlaylistEditable = async ({
+  res,
+  authHeaders,
+  playlistID,
+  userID,
+}) => {
   let checkFields = ["collaborative", "owner(id)"];
-
-  const checkFromData = await getPlaylistDetailsFirstPage({
-    authHeaders,
+  const { resp, error, message } = await getPlaylistDetailsFirstPage({
     res,
+    authHeaders,
     initialFields: checkFields.join(),
     playlistID,
   });
-  if (!checkFromData) return false;
+  if (!resp) return { status: false, error, message };
 
   // https://web.archive.org/web/20241226081630/https://developer.spotify.com/documentation/web-api/concepts/playlists#:~:text=A%20playlist%20can%20also%20be%20made%20collaborative
   // playlist is editable if it's collaborative (and thus private) or owned by the user
-  if (
-    checkFromData.collaborative !== true &&
-    checkFromData.owner?.id !== userID
-  ) {
-    res.status(403).send({
-      message:
-        "You cannot edit this playlist, you must be the owner/the playlist must be collaborative",
-      playlistID,
-    });
-    logger.info("user cannot edit target playlist", { playlistID });
-    return false;
+  if (resp.data.collaborative !== true && resp.data.owner.id !== userID) {
+    return {
+      status: false,
+      error: { playlistID, playlistName: resp.data.name },
+      message: "Cannot edit playlist: " + resp.data.name,
+    };
   } else {
-    return true;
+    return { status: true, message: "" };
   }
 };
 

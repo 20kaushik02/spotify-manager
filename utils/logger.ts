@@ -54,12 +54,16 @@ const winstonLogger: Logger = createLogger({
     new transports.File({
       filename: path.join(import.meta.dirname, "..", "logs", "error.log"),
       level: "error",
-      maxsize: 1048576,
     }),
   ],
 });
 winstonLogger.on("error", (error) =>
   winstonLogger.error("Error inside logger", { error })
+);
+winstonLogger.exceptions.handle(
+  new transports.File({
+    filename: path.join(import.meta.dirname, "..", "logs", "exceptions.log"),
+  })
 );
 
 export default winstonLogger;

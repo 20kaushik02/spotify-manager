@@ -1,8 +1,5 @@
 /** Stringifies only values of a JSON object, including nested ones */
-export const getNestedValuesString = (
-  obj: any,
-  delimiter: string = ", "
-): string => {
+const getNestedValuesString = (obj: any, delimiter: string = ", "): string => {
   let values: string[] = [];
   for (const key in obj) {
     if (typeof obj[key] !== "object") {
@@ -14,3 +11,5 @@ export const getNestedValuesString = (
 
   return values.join(delimiter);
 };
+
+export { getNestedValuesString };

@@ -32,52 +32,54 @@ import type {
 
 // GET method
 // Albums
-export type GetAlbum = AlbumObject;
-export type GetSeveralAlbums = { albums: AlbumObject[] };
-export type GetAlbumTracks = Pagination<SimplifiedTrackObject>;
-export type GetUsersSavedAlbums = Pagination<SavedAlbumObject>;
-export type CheckUsersSavedAlbums = boolean[];
-export type GetNewReleases = { albums: Pagination<SimplifiedAlbumObject> };
+export type GetAlbumData = AlbumObject;
+export type GetSeveralAlbumsData = { albums: AlbumObject[] };
+export type GetAlbumTracksData = Pagination<SimplifiedTrackObject>;
+export type GetUsersSavedAlbumsData = Pagination<SavedAlbumObject>;
+export type CheckUsersSavedAlbumsData = boolean[];
+export type GetNewReleasesData = { albums: Pagination<SimplifiedAlbumObject> };
 
 // Artists
-export type GetArtist = ArtistObject;
-export type GetSeveralArtists = { artists: ArtistObject[] };
-export type GetArtistsAlbums = Pagination<ArtistsAlbumObject>;
-export type GetArtistsTopTracks = { tracks: TrackObject[] };
+export type GetArtistData = ArtistObject;
+export type GetSeveralArtistsData = { artists: ArtistObject[] };
+export type GetArtistsAlbumsData = Pagination<ArtistsAlbumObject>;
+export type GetArtistsTopTracksData = { tracks: TrackObject[] };
 
 // Episodes
-export type GetEpisode = EpisodeObject;
-export type GetSeveralEpisodes = { episodes: EpisodeObject[] };
-export type GetUsersSavedEpisodes = Pagination<SavedEpisodeObject>;
+export type GetEpisodeData = EpisodeObject;
+export type GetSeveralEpisodesData = { episodes: EpisodeObject[] };
+export type GetUsersSavedEpisodesData = Pagination<SavedEpisodeObject>;
 
 // Shows
-export type GetShow = ShowObject;
-export type GetSeveralShows = { shows: SimplifiedShowObject[] };
-export type GetShowEpisodes = Pagination<SimplifiedEpisodeObject>;
-export type GetUsersSavedShows = Pagination<SavedShowObject>;
+export type GetShowData = ShowObject;
+export type GetSeveralShowsData = { shows: SimplifiedShowObject[] };
+export type GetShowEpisodesData = Pagination<SimplifiedEpisodeObject>;
+export type GetUsersSavedShowsData = Pagination<SavedShowObject>;
 
 // Playlists
-export type GetPlaylist = PlaylistObject;
-export type GetPlaylistItems = Pagination<PlaylistTrackObject>;
-export type GetCurrentUsersPlaylists = Pagination<SimplifiedPlaylistObject>;
-export type GetUsersPlaylists = GetCurrentUsersPlaylists;
-export type GetPlaylistCoverImage = ImageObject[];
+export type GetPlaylistData = PlaylistObject;
+export type GetPlaylistItemsData = Pagination<PlaylistTrackObject>;
+export type GetCurrentUsersPlaylistsData = Pagination<SimplifiedPlaylistObject>;
+export type GetUsersPlaylistsData = Pagination<SimplifiedPlaylistObject>;
+export type GetPlaylistCoverImageData = ImageObject[];
 
 // Tracks
-export type GetTrack = TrackObject;
-export type GetSeveralTracks = { tracks: TrackObject[] };
-export type GetUsersSavedTracks = Pagination<SavedTrackObject>;
-export type CheckUsersSavedTracks = boolean[];
+export type GetTrackData = TrackObject;
+export type GetSeveralTracksData = { tracks: TrackObject[] };
+export type GetUsersSavedTracksData = Pagination<SavedTrackObject>;
+export type CheckUsersSavedTracksData = boolean[];
 
 // Users
-export type GetCurrentUsersProfile = UserObject;
-export type GetUsersTopItems =
+export type GetCurrentUsersProfileData = UserObject;
+export type GetUsersTopItemsData =
   | Pagination<ArtistObject>
   | Pagination<TrackObject>;
-export type GetUsersProfile = SimplifiedUserObject;
-export type GetFollowedArtists = { artists: PaginationByCursor<ArtistObject> };
-export type CheckIfUserFollowsArtistsOrNot = boolean[];
-export type CheckIfCurrentUserFollowsPlaylist = boolean[];
+export type GetUsersProfileData = SimplifiedUserObject;
+export type GetFollowedArtistsData = {
+  artists: PaginationByCursor<ArtistObject>;
+};
+export type CheckIfUserFollowsArtistsOrNotData = boolean[];
+export type CheckIfCurrentUserFollowsPlaylistData = boolean[];
 
 // POST method
 // Albums
@@ -86,48 +88,48 @@ export type CheckIfCurrentUserFollowsPlaylist = boolean[];
 // Shows
 
 // Playlists
-export type AddItemsToPlaylist = { snapshot_id: string };
-export type CreatePlaylist = PlaylistObject;
+export type AddItemsToPlaylistData = { snapshot_id: string };
+export type CreatePlaylistData = PlaylistObject;
 
 // Tracks
 // Users
 
 // PUT method
 // Albums
-export type SaveAlbumsForCurrentUser = {};
+export type SaveAlbumsForCurrentUserData = {};
 // Artists
 // Episodes
 // Shows
 
 // Playlists
-export type ChangePlaylistDetails = {};
-export type UpdatePlaylistItems = { snapshot_id: string };
-export type AddCustomPlaylistCoverImage = {};
+export type ChangePlaylistDetailsData = {};
+export type UpdatePlaylistItemsData = { snapshot_id: string };
+export type AddCustomPlaylistCoverImageData = {};
 
 // Tracks
-export type SaveTracksForCurrentUser = {};
+export type SaveTracksForCurrentUserData = {};
 
 // Users
-export type FollowPlaylist = {};
-export type FollowArtistsOrUsers = {};
+export type FollowPlaylistData = {};
+export type FollowArtistsOrUsersData = {};
 
 // DELETE method
 // Albums
-export type RemoveUsersSavedAlbums = {};
+export type RemoveUsersSavedAlbumsData = {};
 
 // Artists
 // Episodes
 // Shows
 
 // Playlists
-export type RemovePlaylistItems = { snapshot_id: string };
+export type RemovePlaylistItemsData = { snapshot_id: string };
 
 // Tracks
-export type RemoveUsersSavedTracks = {};
+export type RemoveUsersSavedTracksData = {};
 
 // Users
-export type UnfollowPlaylist = {};
-export type UnfollowArtistsOrUsers = {};
+export type UnfollowPlaylistData = {};
+export type UnfollowArtistsOrUsersData = {};
 
 // <insert other method> method
 // Albums

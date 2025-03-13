@@ -1,7 +1,7 @@
 /**
  * Generates a random string containing numbers and letters
  */
-export const generateRandString = (length: number): string => {
+const generateRandString = (length: number): string => {
   const possible =
     "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   let text = "";
@@ -11,3 +11,5 @@ export const generateRandString = (length: number): string => {
   }
   return text;
 };
+
+export { generateRandString };

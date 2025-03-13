@@ -6,8 +6,7 @@ import { getNestedValuesString } from "../utils/jsonTransformer.ts";
 
 import logger from "../utils/logger.ts";
 
-/** Refer: https://stackoverflow.com/questions/58848625/access-messages-in-express-validator */
-export const validate: RequestHandler = (req, res, next) => {
+const validate: RequestHandler = (req, res, next) => {
   const errors = validationResult(req);
   if (errors.isEmpty()) {
     return next();
@@ -35,3 +34,5 @@ export const validate: RequestHandler = (req, res, next) => {
   logger.warn("invalid request", { extractedErrors });
   return null;
 };
+
+export { validate };

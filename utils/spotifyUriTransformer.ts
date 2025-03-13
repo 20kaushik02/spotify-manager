@@ -4,7 +4,7 @@ const base62Pattern: RegExp = /^[A-Za-z0-9]+$/;
 
 /**
  * Returns type and ID from a Spotify URI
- * @see {@link https://developer.spotify.com/documentation/web-api/concepts/spotify-uris-ids|Spotify URIs and IDs}
+ * @see {@link https://web.archive.org/web/20250313174409/https://developer.spotify.com/documentation/web-api/concepts/spotify-uris-ids|Spotify URIs and IDs}
  * @param uri Spotify URI - can be of an album, track, playlist, user, episode, etc.
  * @throws {TypeError} If the input is not a valid Spotify URI
  */

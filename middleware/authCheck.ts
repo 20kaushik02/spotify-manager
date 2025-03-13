@@ -4,7 +4,7 @@ import { sessionName } from "../constants.ts";
 
 import logger from "../utils/logger.ts";
 
-export const isAuthenticated: RequestHandler = (req, res, next) => {
+const isAuthenticated: RequestHandler = (req, res, next) => {
   if (req.session.accessToken) {
     req.session.authHeaders = {
       Authorization: `Bearer ${req.session.accessToken}`,
@@ -27,3 +27,5 @@ export const isAuthenticated: RequestHandler = (req, res, next) => {
     });
   }
 };
+
+export { isAuthenticated };

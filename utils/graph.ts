@@ -1,5 +1,5 @@
-export type GNode = string;
-export type GEdge = { from: string; to: string };
+type GNode = string;
+type GEdge = { from: string; to: string };
 
 /**
  * Directed graph, may or may not be connected.
@@ -20,7 +20,7 @@ export type GEdge = { from: string; to: string };
  * console.log(g.detectCycle()); // true
  * ```
  */
-export class myGraph {
+class myGraph {
   nodes: GNode[];
   edges: GEdge[];
   /**
@@ -135,4 +135,5 @@ export class myGraph {
   }
 }
 
+export { type GNode, type GEdge, myGraph };
 export default myGraph;
