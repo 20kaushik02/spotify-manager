@@ -103,8 +103,9 @@ dist
 # TernJS port file
 .tern-port
 
-# SQLite db
+# Ephemeral databases
 *.db
+*.rdb
 
 # production
 /build

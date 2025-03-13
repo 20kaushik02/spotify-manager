@@ -13,7 +13,6 @@ import { RedisStore } from "connect-redis";
 import { redisClient } from "./config/redis.ts";
 
 import { sessionName } from "./constants.ts";
-import seqConn from "./models/index.ts";
 
 import { isAuthenticated } from "./middleware/authCheck.ts";
 import { getCurrentUsersProfile } from "./api/spotify.ts";
@@ -129,8 +128,6 @@ const cleanupFunc = (signal?: string) => {
   if (signal) logger.debug(`${signal} signal received, shutting down now...`);
 
   Promise.allSettled([
-    redisClient.disconnect,
-    seqConn.close,
     promisify(server.close),
   ]).then(() => {
     logger.info("Cleaned up, exiting.");

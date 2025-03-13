@@ -1,6 +1,5 @@
 import { createClient } from "redis";
 
-import { sleep } from "../utils/flake.ts";
 import logger from "../utils/logger.ts";
 
 if (!process.env["REDIS_URI"])
@@ -9,18 +8,16 @@ if (!process.env["REDIS_URI"])
 // Initialize
 const redisClient: ReturnType<typeof createClient> = createClient({
   url: process.env["REDIS_URI"],
+  socket: {
+    keepAlive: 25 * 1000, // 25s
+  },
+});
+redisClient.on("error", (error) => {
+  logger.error("redisClient", { error });
+  throw error;
 });
 
-// Check connection
-(async () => {
-  try {
-    await redisClient.connect();
-    while (!redisClient.isReady) await sleep(100);
-    logger.info("Connected to Redis store");
-  } catch (error) {
-    logger.error("Redis connection error", { error });
-    throw error;
-  }
-})();
+await redisClient.connect();
+logger.info("Connected to Redis store");
 
 export { redisClient };

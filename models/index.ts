@@ -17,16 +17,13 @@ if (!process.env["DB_URI"])
 const config = seqConfig[process.env["NODE_ENV"]];
 const seqConn: Sequelize = new Sequelize(process.env["DB_URI"], config);
 
-// Check connection
-(async () => {
-  try {
-    await seqConn.authenticate();
-    logger.info("Sequelize auth success");
-  } catch (error) {
-    logger.error("Sequelize auth error", { error });
-    throw error;
-  }
-})();
+try {
+  await seqConn.authenticate();
+  logger.info("Sequelize auth success");
+} catch (error) {
+  logger.error("Sequelize auth error", { error });
+  throw error;
+}
 
 // Load models
 seqConn.addModels([links, playlists]);

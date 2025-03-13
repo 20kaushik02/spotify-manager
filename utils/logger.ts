@@ -29,9 +29,9 @@ const logFormat = printf(({ level, message, label, timestamp, ...meta }) => {
   const errorObj: Error = meta["error"] as Error;
   if (errorObj) {
     return (
-      `${timestamp} [${level.toUpperCase()}]: ${message}${metaFormat(
-        errorObj
-      )}\n` + `${errorObj["stack"] ?? ""}`
+      `${timestamp} [${level.toUpperCase()}]: ${message}` + // line 1
+      `${metaFormat(errorObj)}\n` + // metadata
+      `${errorObj["stack"] ?? ""}` // stack trace if any
     );
   }
   return `${timestamp} [${level.toUpperCase()}]: ${message}${metaFormat(meta)}`;
