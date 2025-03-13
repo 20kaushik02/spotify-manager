@@ -1,10 +1,10 @@
 import { Router } from "express";
-const router: Router = Router();
+const playlistRouter: Router = Router();
 
 import { fetchUserPlaylists } from "../controllers/playlists.ts";
 
 // import { validate } from "../validators/index.ts";
 
-router.get("/me", fetchUserPlaylists);
+playlistRouter.get("/me", fetchUserPlaylists);
 
-export default router;
+export default playlistRouter;

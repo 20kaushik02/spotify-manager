@@ -91,7 +91,10 @@ app.use("/health", (_req, res) => {
 });
 app.use("/auth-health", isAuthenticated, async (req, res) => {
   try {
-    const respData = await getCurrentUsersProfile({ req, res });
+    const { authHeaders } = req.session;
+    if (!authHeaders)
+      throw new ReferenceError("session does not have auth headers");
+    const respData = await getCurrentUsersProfile({ authHeaders, res });
     if (!respData) return null;
     res.status(200).send({ message: "OK" });
     return null;

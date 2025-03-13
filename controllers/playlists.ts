@@ -16,8 +16,14 @@ import logger from "../utils/logger.ts";
  */
 const fetchUserPlaylists: RequestHandler = async (req, res) => {
   try {
+    const { authHeaders } = req.session;
+    if (!authHeaders)
+      throw new ReferenceError("session does not have auth headers");
     // get first 50
-    const respData = await getCurrentUsersPlaylistsFirstPage({ req, res });
+    const respData = await getCurrentUsersPlaylistsFirstPage({
+      authHeaders,
+      res,
+    });
     if (!respData) return null;
 
     let tmpData = structuredClone(respData);
@@ -32,7 +38,7 @@ const fetchUserPlaylists: RequestHandler = async (req, res) => {
     // keep getting batches of 50 till exhausted
     while (nextURL) {
       const nextData = await getCurrentUsersPlaylistsNextPage({
-        req,
+        authHeaders,
         res,
         nextURL,
       });
@@ -51,4 +57,5 @@ const fetchUserPlaylists: RequestHandler = async (req, res) => {
     return null;
   }
 };
+
 export { fetchUserPlaylists };

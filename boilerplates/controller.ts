@@ -1,7 +1,6 @@
 import type { RequestHandler } from "express";
 
-import curriedLogger from "../utils/logger.ts";
-const logger = curriedLogger(import.meta.filename);
+import logger from "../utils/logger.ts";
 
 const __controller_func: RequestHandler = async (req, res) => {
   try {

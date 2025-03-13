@@ -37,13 +37,20 @@ import logger from "../utils/logger.ts";
  */
 const updateUser: RequestHandler = async (req, res) => {
   try {
-    let currentPlaylists: PlaylistModel_Pl[] = [];
     if (!req.session.user)
-      throw new ReferenceError("sessionData does not have user object");
+      throw new ReferenceError("session does not have user object");
+    const { authHeaders } = req.session;
+    if (!authHeaders)
+      throw new ReferenceError("session does not have auth headers");
     const uID = req.session.user.id;
 
+    let currentPlaylists: PlaylistModel_Pl[] = [];
+
     // get first 50
-    const respData = await getCurrentUsersPlaylistsFirstPage({ req, res });
+    const respData = await getCurrentUsersPlaylistsFirstPage({
+      authHeaders,
+      res,
+    });
     if (!respData) return null;
 
     currentPlaylists = respData.items.map((playlist) => {
@@ -57,7 +64,7 @@ const updateUser: RequestHandler = async (req, res) => {
     // keep getting batches of 50 till exhausted
     while (nextURL) {
       const nextData = await getCurrentUsersPlaylistsNextPage({
-        req,
+        authHeaders,
         res,
         nextURL,
       });
@@ -217,7 +224,7 @@ const fetchUser: RequestHandler = async (req, res) => {
     // 	return null;
     // }
     if (!req.session.user)
-      throw new ReferenceError("sessionData does not have user object");
+      throw new ReferenceError("session does not have user object");
     const uID = req.session.user.id;
 
     const currentPlaylists = await Playlists.findAll({
@@ -259,7 +266,7 @@ const createLink: RequestHandler = async (req, res) => {
   try {
     // await sleep(1000);
     if (!req.session.user)
-      throw new ReferenceError("sessionData does not have user object");
+      throw new ReferenceError("session does not have user object");
     const uID = req.session.user.id;
 
     let fromPl, toPl;
@@ -351,7 +358,7 @@ const createLink: RequestHandler = async (req, res) => {
 const removeLink: RequestHandler = async (req, res) => {
   try {
     if (!req.session.user)
-      throw new Error("sessionData does not have user object");
+      throw new ReferenceError("session does not have user object");
     const uID = req.session.user.id;
 
     let fromPl, toPl;
@@ -416,12 +423,16 @@ interface _GetPlaylistTracks {
 }
 const _getPlaylistTracks: (
   opts: _GetPlaylistTracksArgs
-) => Promise<_GetPlaylistTracks | null> = async ({ req, res, playlistID }) => {
+) => Promise<_GetPlaylistTracks | null> = async ({
+  authHeaders,
+  res,
+  playlistID,
+}) => {
   let initialFields = ["snapshot_id,tracks(next,items(is_local,track(uri)))"];
   let mainFields = ["next", "items(is_local,track(uri))"];
 
   const respData = await getPlaylistDetailsFirstPage({
-    req,
+    authHeaders,
     res,
     initialFields: initialFields.join(),
     playlistID,
@@ -460,7 +471,7 @@ const _getPlaylistTracks: (
   // keep getting batches of 50 till exhausted
   while (nextURL) {
     const nextData = await getPlaylistDetailsNextPage({
-      req,
+      authHeaders,
       res,
       nextURL,
     });
@@ -514,7 +525,7 @@ interface _PopulateSingleLinkCoreArgs extends EndpointHandlerBaseArgs {
 const _populateSingleLinkCore: (
   opts: _PopulateSingleLinkCoreArgs
 ) => Promise<{ toAddNum: number; localNum: number } | null> = async ({
-  req,
+  authHeaders,
   res,
   link,
 }) => {
@@ -523,12 +534,12 @@ const _populateSingleLinkCore: (
       toPl = link.to;
 
     const fromPlaylist = await _getPlaylistTracks({
-      req,
+      authHeaders,
       res,
       playlistID: fromPl.id,
     });
     const toPlaylist = await _getPlaylistTracks({
-      req,
+      authHeaders,
       res,
       playlistID: toPl.id,
     });
@@ -547,7 +558,7 @@ const _populateSingleLinkCore: (
     while (toTrackURIs.length > 0) {
       const nextBatch = toTrackURIs.splice(0, 100);
       const addData = await addItemsToPlaylist({
-        req,
+        authHeaders,
         res,
         nextBatch,
         playlistID: fromPl.id,
@@ -566,8 +577,11 @@ const _populateSingleLinkCore: (
 const populateSingleLink: RequestHandler = async (req, res) => {
   try {
     if (!req.session.user)
-      throw new Error("sessionData does not have user object");
+      throw new ReferenceError("session does not have user object");
     const uID = req.session.user.id;
+    const { authHeaders } = req.session;
+    if (!authHeaders)
+      throw new ReferenceError("session does not have auth headers");
     const link = { from: req.body.from, to: req.body.to };
     let fromPl, toPl;
 
@@ -599,7 +613,7 @@ const populateSingleLink: RequestHandler = async (req, res) => {
 
     if (
       !(await checkPlaylistEditable({
-        req,
+        authHeaders,
         res,
         playlistID: fromPl.id,
         userID: uID,
@@ -608,7 +622,7 @@ const populateSingleLink: RequestHandler = async (req, res) => {
       return null;
 
     const result = await _populateSingleLinkCore({
-      req,
+      authHeaders,
       res,
       link: { from: fromPl, to: toPl },
     });
@@ -651,18 +665,22 @@ interface _PruneSingleLinkCoreArgs extends EndpointHandlerBaseArgs {
  */
 const _pruneSingleLinkCore: (
   opts: _PruneSingleLinkCoreArgs
-) => Promise<{ toDelNum: number } | null> = async ({ req, res, link }) => {
+) => Promise<{ toDelNum: number } | null> = async ({
+  authHeaders,
+  res,
+  link,
+}) => {
   try {
     const fromPl = link.from,
       toPl = link.to;
 
     const fromPlaylist = await _getPlaylistTracks({
-      req,
+      authHeaders,
       res,
       playlistID: fromPl.id,
     });
     const toPlaylist = await _getPlaylistTracks({
-      req,
+      authHeaders,
       res,
       playlistID: toPl.id,
     });
@@ -684,7 +702,7 @@ const _pruneSingleLinkCore: (
     while (indexes.length > 0) {
       const nextBatch = indexes.splice(Math.max(indexes.length - 100, 0), 100);
       const delResponse = await removePlaylistItems({
-        req,
+        authHeaders,
         res,
         nextBatch,
         playlistID: toPl.id,
@@ -705,8 +723,11 @@ const _pruneSingleLinkCore: (
 const pruneSingleLink: RequestHandler = async (req, res) => {
   try {
     if (!req.session.user)
-      throw new Error("sessionData does not have user object");
+      throw new ReferenceError("session does not have user object");
     const uID = req.session.user.id;
+    const { authHeaders } = req.session;
+    if (!authHeaders)
+      throw new ReferenceError("session does not have auth headers");
     const link = { from: req.body.from, to: req.body.to };
 
     let fromPl, toPl;
@@ -738,7 +759,7 @@ const pruneSingleLink: RequestHandler = async (req, res) => {
 
     if (
       !(await checkPlaylistEditable({
-        req,
+        authHeaders,
         res,
         playlistID: toPl.id,
         userID: uID,
@@ -747,7 +768,7 @@ const pruneSingleLink: RequestHandler = async (req, res) => {
       return null;
 
     const result = await _pruneSingleLinkCore({
-      req,
+      authHeaders,
       res,
       link: {
         from: fromPl,

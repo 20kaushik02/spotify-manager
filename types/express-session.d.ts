@@ -1,4 +1,4 @@
-import type { AxiosRequestHeaders } from "axios";
+import type { RawAxiosRequestHeaders } from "axios";
 import type { User } from "spotify_manager/index.d.ts";
 
 declare module "express-session" {
@@ -6,7 +6,7 @@ declare module "express-session" {
   interface SessionData {
     accessToken: string;
     refreshToken: string;
-    authHeaders: AxiosRequestHeaders;
+    authHeaders: RawAxiosRequestHeaders;
     user: User;
   }
 }

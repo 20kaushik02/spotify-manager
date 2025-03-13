@@ -48,6 +48,7 @@ const callback: RequestHandler = async (req, res) => {
   try {
     const { code, state, error } = req.query;
     const storedState = req.cookies ? req.cookies[stateKey] : null;
+    let authHeaders;
 
     // check state
     if (state === null || state !== storedState) {
@@ -76,14 +77,18 @@ const callback: RequestHandler = async (req, res) => {
         logger.debug("Tokens obtained.");
         req.session.accessToken = tokenResponse.data.access_token;
         req.session.refreshToken = tokenResponse.data.refresh_token;
+        authHeaders = {
+          Authorization: `Bearer ${req.session.accessToken}`,
+        };
       } else {
         logger.error("login failed", { statusCode: tokenResponse.status });
         res
           .status(tokenResponse.status)
           .send({ message: "Error: Login failed" });
+        return null;
       }
 
-      const userData = await getCurrentUsersProfile({ req, res });
+      const userData = await getCurrentUsersProfile({ authHeaders, res });
       if (!userData) return null;
 
       req.session.user = {

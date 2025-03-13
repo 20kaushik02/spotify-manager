@@ -1,6 +1,10 @@
 import { axiosInstance } from "./axios.ts";
 
-import { type AxiosResponse, type AxiosRequestConfig } from "axios";
+import {
+  type AxiosResponse,
+  type AxiosRequestConfig,
+  type RawAxiosRequestHeaders,
+} from "axios";
 import type {
   AddItemsToPlaylist,
   EndpointHandlerBaseArgs,
@@ -9,7 +13,6 @@ import type {
   GetPlaylist,
   GetPlaylistItems,
   RemovePlaylistItems,
-  Req,
   Res,
 } from "spotify_manager/index.d.ts";
 
@@ -34,7 +37,7 @@ enum allowedMethods {
  * @param inlineData true if `data` is to be placed inside config (say, axios' delete method)
  */
 const singleRequest = async <RespDataType>(
-  req: Req,
+  authHeaders: RawAxiosRequestHeaders,
   res: Res,
   method: allowedMethods,
   path: string,
@@ -43,7 +46,7 @@ const singleRequest = async <RespDataType>(
   inlineData: boolean = false
 ): Promise<AxiosResponse<RespDataType, any> | null> => {
   let resp: AxiosResponse<RespDataType, any>;
-  config.headers = { ...config.headers, ...req.session.authHeaders };
+  config.headers = { ...config.headers, ...authHeaders };
   try {
     if (!data || inlineData) {
       if (data) config.data = data ?? null;
@@ -87,15 +90,12 @@ const singleRequest = async <RespDataType>(
 interface GetCurrentUsersProfileArgs extends EndpointHandlerBaseArgs {}
 const getCurrentUsersProfile: (
   opts: GetCurrentUsersProfileArgs
-) => Promise<GetCurrentUsersProfile | null> = async ({ req, res }) => {
+) => Promise<GetCurrentUsersProfile | null> = async ({ authHeaders, res }) => {
   const response = await singleRequest<GetCurrentUsersProfile>(
-    req,
+    authHeaders,
     res,
     allowedMethods.Get,
-    "/me",
-    {
-      headers: { Authorization: `Bearer ${req.session.accessToken}` },
-    }
+    "/me"
   );
   return response ? response.data : null;
 };
@@ -104,9 +104,12 @@ interface GetCurrentUsersPlaylistsFirstPageArgs
   extends EndpointHandlerBaseArgs {}
 const getCurrentUsersPlaylistsFirstPage: (
   opts: GetCurrentUsersPlaylistsFirstPageArgs
-) => Promise<GetCurrentUsersPlaylists | null> = async ({ req, res }) => {
+) => Promise<GetCurrentUsersPlaylists | null> = async ({
+  authHeaders,
+  res,
+}) => {
   const response = await singleRequest<GetCurrentUsersPlaylists>(
-    req,
+    authHeaders,
     res,
     allowedMethods.Get,
     `/me/playlists`,
@@ -126,12 +129,12 @@ interface GetCurrentUsersPlaylistsNextPageArgs extends EndpointHandlerBaseArgs {
 const getCurrentUsersPlaylistsNextPage: (
   opts: GetCurrentUsersPlaylistsNextPageArgs
 ) => Promise<GetCurrentUsersPlaylists | null> = async ({
-  req,
+  authHeaders,
   res,
   nextURL,
 }) => {
   const response = await singleRequest<GetCurrentUsersPlaylists>(
-    req,
+    authHeaders,
     res,
     allowedMethods.Get,
     nextURL
@@ -146,13 +149,13 @@ interface GetPlaylistDetailsFirstPageArgs extends EndpointHandlerBaseArgs {
 const getPlaylistDetailsFirstPage: (
   opts: GetPlaylistDetailsFirstPageArgs
 ) => Promise<GetPlaylist | null> = async ({
-  req,
+  authHeaders,
   res,
   initialFields,
   playlistID,
 }) => {
   const response = await singleRequest<GetPlaylist>(
-    req,
+    authHeaders,
     res,
     allowedMethods.Get,
     `/playlists/${playlistID}/`,
@@ -170,9 +173,13 @@ interface GetPlaylistDetailsNextPageArgs extends EndpointHandlerBaseArgs {
 }
 const getPlaylistDetailsNextPage: (
   opts: GetPlaylistDetailsNextPageArgs
-) => Promise<GetPlaylistItems | null> = async ({ req, res, nextURL }) => {
+) => Promise<GetPlaylistItems | null> = async ({
+  authHeaders,
+  res,
+  nextURL,
+}) => {
   const response = await singleRequest<GetPlaylistItems>(
-    req,
+    authHeaders,
     res,
     allowedMethods.Get,
     nextURL
@@ -187,13 +194,13 @@ interface AddItemsToPlaylistArgs extends EndpointHandlerBaseArgs {
 const addItemsToPlaylist: (
   opts: AddItemsToPlaylistArgs
 ) => Promise<AddItemsToPlaylist | null> = async ({
-  req,
+  authHeaders,
   res,
   nextBatch,
   playlistID,
 }) => {
   const response = await singleRequest<AddItemsToPlaylist>(
-    req,
+    authHeaders,
     res,
     allowedMethods.Post,
     `/playlists/${playlistID}/tracks`,
@@ -212,7 +219,7 @@ interface RemovePlaylistItemsArgs extends EndpointHandlerBaseArgs {
 const removePlaylistItems: (
   opts: RemovePlaylistItemsArgs
 ) => Promise<RemovePlaylistItems | null> = async ({
-  req,
+  authHeaders,
   res,
   nextBatch,
   playlistID,
@@ -221,7 +228,7 @@ const removePlaylistItems: (
   // API doesn't document this kind of deletion via the 'positions' field
   // but see here: https://github.com/spotipy-dev/spotipy/issues/95#issuecomment-2263634801
   const response = await singleRequest<RemovePlaylistItems>(
-    req,
+    authHeaders,
     res,
     allowedMethods.Delete,
     `/playlists/${playlistID}/tracks`,
@@ -243,11 +250,11 @@ interface CheckPlaylistEditableArgs extends EndpointHandlerBaseArgs {
 }
 const checkPlaylistEditable: (
   opts: CheckPlaylistEditableArgs
-) => Promise<boolean> = async ({ req, res, playlistID, userID }) => {
+) => Promise<boolean> = async ({ authHeaders, res, playlistID, userID }) => {
   let checkFields = ["collaborative", "owner(id)"];
 
   const checkFromData = await getPlaylistDetailsFirstPage({
-    req,
+    authHeaders,
     res,
     initialFields: checkFields.join(),
     playlistID,

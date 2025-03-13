@@ -1,4 +1,3 @@
-import type { AxiosRequestHeaders } from "axios";
 import type { RequestHandler } from "express";
 
 import { sessionName } from "../constants.ts";
@@ -9,7 +8,7 @@ export const isAuthenticated: RequestHandler = (req, res, next) => {
   if (req.session.accessToken) {
     req.session.authHeaders = {
       Authorization: `Bearer ${req.session.accessToken}`,
-    } as AxiosRequestHeaders;
+    };
     next();
   } else {
     const delSession = req.session.destroy((error) => {
