@@ -11,12 +11,7 @@ import {
 } from "../api/spotify.ts";
 
 import type { RequestHandler } from "express";
-import type {
-  EndpointHandlerWithResArgs,
-  LinkModel_Edge,
-  PlaylistModel_Pl,
-  URIObject,
-} from "spotify_manager/index.d.ts";
+import type { EndpointHandlerWithResArgs } from "spotify_manager/index.d.ts";
 
 import seqConn from "../models/index.ts";
 
@@ -44,7 +39,8 @@ const updateUser: RequestHandler = async (req, res) => {
       throw new ReferenceError("session does not have auth headers");
     const uID = req.session.user.id;
 
-    let currentPlaylists: PlaylistModel_Pl[] = [];
+    type PlaylistCore = { playlistID: string; playlistName: string };
+    let currentPlaylists: PlaylistCore[] = [];
 
     // get first 50
     const { resp } = await getCurrentUsersPlaylistsFirstPage({
@@ -84,7 +80,7 @@ const updateUser: RequestHandler = async (req, res) => {
       nextURL = nextData.next;
     }
 
-    let oldPlaylists = await Playlists.findAll({
+    let oldPlaylists: PlaylistCore[] = await Playlists.findAll({
       attributes: ["playlistID", "playlistName"],
       raw: true,
       where: {
@@ -92,8 +88,8 @@ const updateUser: RequestHandler = async (req, res) => {
       },
     });
 
-    const deleted: PlaylistModel_Pl[] = [];
-    const added: PlaylistModel_Pl[] = [];
+    const deleted: PlaylistCore[] = [];
+    const added: PlaylistCore[] = [];
     const renamed: { playlistID: string; oldName: string; newName: string }[] =
       [];
 
@@ -286,11 +282,11 @@ const createLink: RequestHandler = async (req, res) => {
       return null;
     }
 
-    const playlists = (await Playlists.findAll({
+    const playlists = await Playlists.findAll({
       attributes: ["playlistID"],
       raw: true,
       where: { userID: uID },
-    })) as unknown as PlaylistModel_Pl[];
+    });
     const playlistIDs = playlists.map((pl) => pl.playlistID);
 
     // if playlists are unknown
@@ -312,11 +308,11 @@ const createLink: RequestHandler = async (req, res) => {
       return null;
     }
 
-    const allLinks = (await Links.findAll({
+    const allLinks = await Links.findAll({
       attributes: ["from", "to"],
       raw: true,
       where: { userID: uID },
-    })) as unknown as LinkModel_Edge[];
+    });
 
     const newGraph = new myGraph(playlistIDs, [
       ...allLinks,
@@ -413,58 +409,66 @@ const removeLink: RequestHandler = async (req, res) => {
   }
 };
 
+type _TrackObj = { is_local: boolean; uri: string };
 interface _GetPlaylistTracksArgs extends EndpointHandlerWithResArgs {
   playlistID: string;
 }
 interface _GetPlaylistTracks {
-  tracks: {
-    is_local: boolean;
-    uri: string;
-  }[];
+  tracks: _TrackObj[];
   snapshotID: string;
 }
 const _getPlaylistTracks: (
   opts: _GetPlaylistTracksArgs
 ) => Promise<_GetPlaylistTracks | null> = async ({
-  authHeaders,
   res,
+  authHeaders,
   playlistID,
 }) => {
-  let initialFields = ["snapshot_id,tracks(next,items(is_local,track(uri)))"];
-  let mainFields = ["next", "items(is_local,track(uri))"];
-
-  const { resp } = await getPlaylistDetailsFirstPage({
-    authHeaders,
+  // TODO: type this to indicate that only the requested fields are present
+  const { resp: snapshotResp } = await getPlaylistDetailsFirstPage({
     res,
-    initialFields: initialFields.join(),
+    authHeaders,
+    initialFields: "snapshot_id",
     playlistID,
   });
-  if (!resp) return null;
-  const respData = resp.data;
+  if (!snapshotResp) return null;
+
+  const currentSnapshotID = snapshotResp.data.snapshot_id;
 
   // check cache
   const cachedSnapshotID = await redisClient.get(
     "playlist_snapshot:" + playlistID
   );
-  if (cachedSnapshotID === respData.snapshot_id) {
+  if (cachedSnapshotID === currentSnapshotID) {
     const cachedTracksData = (await redisClient.json.get(
       "playlist_tracks:" + playlistID
-    )) as _GetPlaylistTracks["tracks"];
+    )) as _TrackObj[];
     return { tracks: cachedTracksData, snapshotID: cachedSnapshotID };
   }
+  let firstPageFields = ["tracks(next,items(is_local,track(uri)))"];
+  let mainFields = ["next", "items(is_local,track(uri))"];
+
+  const { resp: firstResp } = await getPlaylistDetailsFirstPage({
+    res,
+    authHeaders,
+    initialFields: firstPageFields.join(),
+    playlistID,
+  });
+  if (!firstResp) return null;
+  const firstRespData = firstResp.data;
 
   const pl: _GetPlaylistTracks = {
     tracks: [],
-    snapshotID: respData.snapshot_id,
+    snapshotID: currentSnapshotID,
   };
   let nextURL;
 
-  if (respData.tracks.next) {
-    nextURL = new URL(respData.tracks.next);
+  if (firstRespData.tracks.next) {
+    nextURL = new URL(firstRespData.tracks.next);
     nextURL.searchParams.set("fields", mainFields.join());
     nextURL = nextURL.href;
   }
-  pl.tracks = respData.tracks.items.map((playlist_item) => {
+  pl.tracks = firstRespData.tracks.items.map((playlist_item) => {
     return {
       is_local: playlist_item.is_local,
       uri: playlist_item.track.uri,
@@ -494,21 +498,35 @@ const _getPlaylistTracks: (
   }
 
   // cache new data
-  await redisClient.set(
-    "playlist_snapshot:" + playlistID,
-    respData.snapshot_id
-  );
+  await redisClient.set("playlist_snapshot:" + playlistID, currentSnapshotID);
   await redisClient.json.set("playlist_tracks:" + playlistID, "$", pl.tracks);
 
   return pl;
 };
 
-interface _PopulateSingleLinkCoreArgs extends EndpointHandlerWithResArgs {
-  link: {
-    from: URIObject;
-    to: URIObject;
-  };
+interface _TrackFilterArgs {
+  /** link head playlist */
+  from: _TrackObj[];
+  /** link tail playlist */
+  to: _TrackObj[];
 }
+type _PopulateFilter = { missing: string[]; localNum: number };
+const _populateSingleLinkCore: (opts: _TrackFilterArgs) => _PopulateFilter = ({
+  from,
+  to,
+}) => {
+  const fromTrackURIs = from.map((track) => track.uri);
+  let toTrackURIs = to
+    .filter((track) => !track.is_local) // API doesn't support adding local files to playlists yet
+    .filter((track) => !fromTrackURIs.includes(track.uri)) // only ones missing from the 'from' playlist
+    .map((track) => track.uri);
+
+  return {
+    missing: toTrackURIs,
+    localNum: to.filter((track) => track.is_local).length,
+  };
+};
+
 /**
  * Add tracks to the link-head playlist,
  * that are present in the link-tail playlist but not in the link-head playlist,
@@ -526,59 +544,6 @@ interface _PopulateSingleLinkCoreArgs extends EndpointHandlerWithResArgs {
  *
  * CANNOT populate local files; Spotify API does not support it yet.
  */
-const _populateSingleLinkCore: (opts: _PopulateSingleLinkCoreArgs) => Promise<{
-  toAddNum: number;
-  addedNum: number;
-  localNum: number;
-} | null> = async ({ res, authHeaders, link }) => {
-  try {
-    const fromPl = link.from,
-      toPl = link.to;
-
-    const fromPlaylist = await _getPlaylistTracks({
-      res,
-      authHeaders,
-      playlistID: fromPl.id,
-    });
-    if (!fromPlaylist) return null;
-
-    const toPlaylist = await _getPlaylistTracks({
-      res,
-      authHeaders,
-      playlistID: toPl.id,
-    });
-    if (!toPlaylist) return null;
-
-    const fromTrackURIs = fromPlaylist.tracks.map((track) => track.uri);
-    let toTrackURIs = toPlaylist.tracks
-      .filter((track) => !track.is_local) // API doesn't support adding local files to playlists yet
-      .filter((track) => !fromTrackURIs.includes(track.uri)) // only ones missing from the 'from' playlist
-      .map((track) => track.uri);
-
-    const toAddNum = toTrackURIs.length;
-    const localNum = toPlaylist.tracks.filter((track) => track.is_local).length;
-    let addedNum = 0;
-
-    // append to end in batches of 100
-    while (toTrackURIs.length > 0) {
-      const nextBatch = toTrackURIs.splice(0, 100);
-      const { resp } = await addItemsToPlaylist({
-        authHeaders,
-        nextBatch,
-        playlistID: fromPl.id,
-      });
-      if (!resp) break;
-      addedNum += nextBatch.length;
-    }
-
-    return { toAddNum, addedNum, localNum };
-  } catch (error) {
-    res.status(500).send({ message: "Internal Server Error" });
-    logger.error("_populateSingleLinkCore", { error });
-    return null;
-  }
-};
-
 const populateSingleLink: RequestHandler = async (req, res) => {
   try {
     if (!req.session.user)
@@ -628,25 +593,49 @@ const populateSingleLink: RequestHandler = async (req, res) => {
     )
       return null;
 
-    const result = await _populateSingleLinkCore({
-      authHeaders,
+    const fromTracks = await _getPlaylistTracks({
       res,
-      link: { from: fromPl, to: toPl },
+      authHeaders,
+      playlistID: fromPl.id,
     });
-    if (result) {
-      const { toAddNum, addedNum, localNum } = result;
-      let message;
-      message =
-        toAddNum > 0 ? "Added " + addedNum + " tracks" : "No tracks to add";
-      message +=
-        addedNum < toAddNum
-          ? ", failed to add " + (toAddNum - addedNum) + " tracks"
-          : "";
-      message += localNum > 0 ? ", skipped " + localNum + " local files" : ".";
+    if (!fromTracks) return null;
+    const toTracks = await _getPlaylistTracks({
+      res,
+      authHeaders,
+      playlistID: toPl.id,
+    });
+    if (!toTracks) return null;
 
-      res.status(200).send({ message, toAddNum, addedNum, localNum });
-      logger.debug(message, { toAddNum, localNum });
+    const { missing, localNum } = _populateSingleLinkCore({
+      from: fromTracks.tracks,
+      to: toTracks.tracks,
+    });
+    const toAddNum = missing.length;
+
+    // add in batches of 100
+    let addedNum = 0;
+    while (missing.length > 0) {
+      const nextBatch = missing.splice(0, 100);
+      const { resp } = await addItemsToPlaylist({
+        authHeaders,
+        nextBatch,
+        playlistID: fromPl.id,
+      });
+      if (!resp) break;
+      addedNum += nextBatch.length;
     }
+
+    let message;
+    message =
+      toAddNum > 0 ? "Added " + addedNum + " tracks" : "No tracks to add";
+    message +=
+      addedNum < toAddNum
+        ? ", failed to add " + (toAddNum - addedNum) + " tracks"
+        : "";
+    message += localNum > 0 ? ", skipped " + localNum + " local files" : ".";
+
+    res.status(200).send({ message, toAddNum, addedNum, localNum });
+    logger.debug(message, { toAddNum, addedNum, localNum });
     return null;
   } catch (error) {
     res.status(500).send({ message: "Internal Server Error" });
@@ -655,9 +644,148 @@ const populateSingleLink: RequestHandler = async (req, res) => {
   }
 };
 
-interface _PruneSingleLinkCoreArgs extends EndpointHandlerWithResArgs {
-  link: { from: URIObject; to: URIObject };
-}
+const populateChain: RequestHandler = async (req, res) => {
+  try {
+    if (!req.session.user)
+      throw new ReferenceError("session does not have user object");
+    const uID = req.session.user.id;
+    const { authHeaders } = req.session;
+    if (!authHeaders)
+      throw new ReferenceError("session does not have auth headers");
+
+    const { root } = req.body;
+    let rootPl;
+    try {
+      rootPl = parseSpotifyLink(root);
+      if (rootPl.type !== "playlist") {
+        res.status(400).send({ message: "Link is not a playlist" });
+        logger.info("non-playlist link provided", root);
+        return null;
+      }
+    } catch (error) {
+      res.status(400).send({ message: "Could not parse link" });
+      logger.warn("parseSpotifyLink", { error });
+      return null;
+    }
+
+    const playlists = await Playlists.findAll({
+      attributes: ["playlistID"],
+      raw: true,
+      where: { userID: uID },
+    });
+    const playlistIDs = playlists.map((pl) => pl.playlistID);
+
+    const allLinks = await Links.findAll({
+      attributes: ["from", "to"],
+      raw: true,
+      where: { userID: uID },
+    });
+
+    // current idea: only add from the root, don't ripple-propagate
+    // for bulk opn, this should be sufficient if this method of
+    // chain populating is applied to every leaf node
+    // (although that's a challenge of its own)
+    const newGraph = new myGraph(playlistIDs, allLinks);
+    const affectedPlaylists = newGraph.getAllHeads(rootPl.id);
+    const affectedPlaylistsTracks = await Promise.all(
+      affectedPlaylists.map((pl) => {
+        return _getPlaylistTracks({ res, authHeaders, playlistID: pl });
+      })
+    );
+    if (affectedPlaylistsTracks.some((plTracks) => !plTracks)) return null;
+
+    const rootTracks = await _getPlaylistTracks({
+      res,
+      authHeaders,
+      playlistID: rootPl.id,
+    });
+    if (!rootTracks) return null;
+
+    const populateData = affectedPlaylistsTracks.map((plTracks) => {
+      return _populateSingleLinkCore({
+        from: plTracks!.tracks, // how to have the .some check recognized by typescript?
+        to: rootTracks.tracks,
+      });
+    });
+
+    // is map the best way to do this?
+    // or should i use a for loop and break on error?
+    const populateResult = await Promise.all(
+      populateData.map(async ({ missing, localNum }, index) => {
+        const toAddNum = missing.length;
+        const playlistID = affectedPlaylists[index]!; // ...
+        let addedNum = 0;
+        while (missing.length > 0) {
+          const nextBatch = missing.splice(0, 100);
+          const { resp } = await addItemsToPlaylist({
+            authHeaders,
+            nextBatch,
+            playlistID,
+          });
+          if (!resp) break;
+          addedNum += nextBatch.length;
+        }
+        return { playlistID, toAddNum, addedNum, localNum };
+      })
+    );
+
+    const reducedResult = populateResult.reduce(
+      (acc, curr) => {
+        return {
+          toAddNum: acc.toAddNum + curr.toAddNum,
+          addedNum: acc.addedNum + curr.addedNum,
+          localNum: acc.localNum + curr.localNum,
+        };
+      },
+      { toAddNum: 0, addedNum: 0, localNum: 0 }
+    );
+
+    let message;
+    message = `There are ${populateResult.length} playlists up the chain.`;
+    message +=
+      reducedResult.toAddNum > 0
+        ? " Added " + reducedResult.addedNum + " tracks"
+        : " No tracks to add";
+    message +=
+      reducedResult.addedNum < reducedResult.toAddNum
+        ? ", failed to add " +
+          (reducedResult.toAddNum - reducedResult.addedNum) +
+          " tracks"
+        : "";
+    message +=
+      reducedResult.localNum > 0
+        ? ", skipped " + reducedResult.localNum + " local files"
+        : ".";
+
+    res.status(200).send({ message, ...reducedResult });
+    logger.debug(message, { ...reducedResult });
+    return null;
+  } catch (error) {
+    res.status(500).send({ message: "Internal Server Error" });
+    logger.error("populateChain", { error });
+    return null;
+  }
+};
+
+type _PruneFilter = { missingPositions: number[] };
+const _pruneSingleLinkCore: (opts: _TrackFilterArgs) => _PruneFilter = ({
+  from,
+  to,
+}) => {
+  const fromTrackURIs = from.map((track) => track.uri);
+  const indexedToTrackURIs = to.map((track, index) => {
+    return { ...track, position: index };
+  });
+
+  let indexes = indexedToTrackURIs
+    .filter((track) => !fromTrackURIs.includes(track.uri)) // only those missing from the 'from' playlist
+    .map((track) => track.position); // get track positions
+
+  return {
+    missingPositions: indexes,
+  };
+};
+
 /**
  * Remove tracks from the link-tail playlist,
  * that are present in the link-tail playlist but not in the link-head playlist.
@@ -673,66 +801,6 @@ interface _PruneSingleLinkCoreArgs extends EndpointHandlerWithResArgs {
  * after pruneSingleLink, pl_b will have tracks: b, c
  *
  */
-const _pruneSingleLinkCore: (
-  opts: _PruneSingleLinkCoreArgs
-) => Promise<{ toDelNum: number; deletedNum: number } | null> = async ({
-  authHeaders,
-  res,
-  link,
-}) => {
-  try {
-    const fromPl = link.from,
-      toPl = link.to;
-
-    const fromPlaylist = await _getPlaylistTracks({
-      authHeaders,
-      res,
-      playlistID: fromPl.id,
-    });
-    if (!fromPlaylist) return null;
-
-    const toPlaylist = await _getPlaylistTracks({
-      authHeaders,
-      res,
-      playlistID: toPl.id,
-    });
-    if (!toPlaylist) return null;
-
-    const fromTrackURIs = fromPlaylist.tracks.map((track) => track.uri);
-    const indexedToTrackURIs = toPlaylist.tracks.map((track, index) => {
-      return { ...track, position: index };
-    });
-
-    let indexes = indexedToTrackURIs
-      .filter((track) => !fromTrackURIs.includes(track.uri)) // only those missing from the 'from' playlist
-      .map((track) => track.position); // get track positions
-
-    const toDelNum = indexes.length;
-    let deletedNum = 0;
-
-    // remove in batches of 100 (from reverse, to preserve positions while modifying)
-    let currentSnapshot = toPlaylist.snapshotID;
-    while (indexes.length > 0) {
-      const nextBatch = indexes.splice(Math.max(indexes.length - 100, 0), 100);
-      const { resp } = await removePlaylistItems({
-        authHeaders,
-        nextBatch,
-        playlistID: toPl.id,
-        snapshotID: currentSnapshot,
-      });
-      if (!resp) break;
-      deletedNum += nextBatch.length;
-      currentSnapshot = resp.data.snapshot_id;
-    }
-
-    return { toDelNum, deletedNum };
-  } catch (error) {
-    res.status(500).send({ message: "Internal Server Error" });
-    logger.error("_pruneSingleLinkCore", { error });
-    return null;
-  }
-};
-
 const pruneSingleLink: RequestHandler = async (req, res) => {
   try {
     if (!req.session.user)
@@ -782,29 +850,58 @@ const pruneSingleLink: RequestHandler = async (req, res) => {
     )
       return null;
 
-    const result = await _pruneSingleLinkCore({
-      authHeaders,
+    const fromTracks = await _getPlaylistTracks({
       res,
-      link: {
-        from: fromPl,
-        to: toPl,
-      },
+      authHeaders,
+      playlistID: fromPl.id,
     });
-    if (result) {
-      const { toDelNum, deletedNum } = result;
-      let message;
-      message =
-        toDelNum > 0
-          ? "Removed " + deletedNum + " tracks"
-          : "No tracks to remove";
-      message +=
-        deletedNum < toDelNum
-          ? ", failed to remove " + (toDelNum - deletedNum) + " tracks"
-          : ".";
+    if (!fromTracks) return null;
 
-      res.status(200).send({ message, toDelNum, deletedNum });
-      logger.debug(message, { toDelNum, deletedNum });
+    const toTracks = await _getPlaylistTracks({
+      res,
+      authHeaders,
+      playlistID: toPl.id,
+    });
+    if (!toTracks) return null;
+
+    const { missingPositions } = _pruneSingleLinkCore({
+      from: fromTracks.tracks,
+      to: toTracks.tracks,
+    });
+
+    const toDelNum = missingPositions.length;
+    let deletedNum = 0;
+
+    // remove in batches of 100 (from reverse, to preserve positions while modifying)
+    let currentSnapshot = toTracks.snapshotID;
+    while (missingPositions.length > 0) {
+      const nextBatch = missingPositions.splice(
+        Math.max(missingPositions.length - 100, 0),
+        100
+      );
+      const { resp } = await removePlaylistItems({
+        authHeaders,
+        nextBatch,
+        playlistID: toPl.id,
+        snapshotID: currentSnapshot,
+      });
+      if (!resp) break;
+      deletedNum += nextBatch.length;
+      currentSnapshot = resp.data.snapshot_id;
     }
+
+    let message;
+    message =
+      toDelNum > 0
+        ? "Removed " + deletedNum + " tracks"
+        : "No tracks to remove";
+    message +=
+      deletedNum < toDelNum
+        ? ", failed to remove " + (toDelNum - deletedNum) + " tracks"
+        : ".";
+
+    res.status(200).send({ message, toDelNum, deletedNum });
+    logger.debug(message, { toDelNum, deletedNum });
     return null;
   } catch (error) {
     res.status(500).send({ message: "Internal Server Error" });
@@ -819,5 +916,6 @@ export {
   createLink,
   removeLink,
   populateSingleLink,
+  populateChain,
   pruneSingleLink,
 };

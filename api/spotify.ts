@@ -78,7 +78,7 @@ const singleRequest = async <RespDataType>({
     if (error.response) {
       // Non 2XX response received
       message = message.concat(
-        `${error.response.status} - ${error.response.data?.message}`
+        `${error.response.status} - ${error.response.data?.error?.message}`
       );
       res?.status(error.response.status).send(error.response.data);
       logger.warn(message, {

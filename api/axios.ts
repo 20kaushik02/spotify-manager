@@ -1,4 +1,5 @@
 // TODO: rate limit module is busted (CJS types), do something for rate limiting
+// bottleneck (https://npmjs.com/package/bottleneck) looks nice
 import axios, { type AxiosInstance } from "axios";
 import { baseAPIURL, accountsAPIURL } from "../constants.ts";
 import logger from "../utils/logger.ts";
