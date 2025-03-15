@@ -168,7 +168,9 @@ const getCurrentUsersPlaylistsNextPage: (
   });
 };
 
-interface GetPlaylistDetailsFirstPageArgs extends EndpointHandlerWithResArgs {
+interface GetPlaylistDetailsFirstPageArgs
+  extends Omit<EndpointHandlerWithResArgs, "res"> {
+  res?: Res;
   initialFields: string;
   playlistID: string;
 }
@@ -181,16 +183,17 @@ const getPlaylistDetailsFirstPage: (
   initialFields,
   playlistID,
 }) => {
-  return await singleRequest<GetPlaylistData>({
+  let args: SingleRequestArgs = {
     authHeaders,
-    res,
     path: `/playlists/${playlistID}/`,
     config: {
       params: {
         fields: initialFields,
       },
     },
-  });
+  };
+  if (res) args.res = res;
+  return await singleRequest<GetPlaylistData>(args);
 };
 
 interface GetPlaylistDetailsNextPageArgs extends EndpointHandlerWithResArgs {
@@ -254,7 +257,9 @@ const removePlaylistItems: (
 // non-endpoints, i.e. convenience wrappers
 // ---------
 
-interface CheckPlaylistEditableArgs extends EndpointHandlerWithResArgs {
+interface CheckPlaylistEditableArgs
+  extends Omit<EndpointHandlerWithResArgs, "res"> {
+  res?: Res;
   playlistID: string;
   userID: string;
 }
@@ -272,12 +277,13 @@ const checkPlaylistEditable: (
   userID,
 }) => {
   let checkFields = ["collaborative", "owner(id)"];
-  const { resp, error, message } = await getPlaylistDetailsFirstPage({
-    res,
+  let args: GetPlaylistDetailsFirstPageArgs = {
     authHeaders,
     initialFields: checkFields.join(),
     playlistID,
-  });
+  };
+  if (res) args.res = res;
+  const { resp, error, message } = await getPlaylistDetailsFirstPage(args);
   if (!resp) return { status: false, error, message };
 
   // https://web.archive.org/web/20241226081630/https://developer.spotify.com/documentation/web-api/concepts/playlists#:~:text=A%20playlist%20can%20also%20be%20made%20collaborative

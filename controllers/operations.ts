@@ -687,6 +687,19 @@ const populateChain: RequestHandler = async (req, res) => {
     // (although that's a challenge of its own)
     const newGraph = new myGraph(playlistIDs, allLinks);
     const affectedPlaylists = newGraph.getAllHeads(rootPl.id);
+
+    const editableStatuses = await Promise.all(
+      affectedPlaylists.map((pl) => {
+        return checkPlaylistEditable({
+          authHeaders,
+          playlistID: pl,
+          userID: uID,
+        });
+      })
+    );
+    if (editableStatuses.some((statusObj) => statusObj.status === false))
+      return null;
+
     const affectedPlaylistsTracks = await Promise.all(
       affectedPlaylists.map((pl) => {
         return _getPlaylistTracks({ res, authHeaders, playlistID: pl });
