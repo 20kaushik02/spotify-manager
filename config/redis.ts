@@ -10,6 +10,7 @@ const redisClient: ReturnType<typeof createClient> = createClient({
   url: process.env["REDIS_URI"],
   socket: {
     keepAlive: 25 * 1000, // 25s
+    connectTimeout: 15 * 1000,
   },
 });
 redisClient.on("error", (error) => {

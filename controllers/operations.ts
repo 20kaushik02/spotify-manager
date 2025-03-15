@@ -672,9 +672,6 @@ const populateChain: RequestHandler = async (req, res) => {
     });
 
     // current idea: only add from the root, don't ripple-propagate
-    // for bulk opn, this should be sufficient if this method of
-    // chain populating is applied to every leaf node
-    // (although that's a challenge of its own)
     const newGraph = new myGraph(playlistIDs, allLinks);
     const affectedPlaylists = newGraph.getAllHeads(rootPl.id);
 
@@ -912,7 +909,7 @@ const pruneSingleLink: RequestHandler = async (req, res) => {
         : "No tracks to remove";
     message +=
       deletedNum < toDelNum
-        ? ", failed to remove " + (toDelNum - deletedNum) + " tracks"
+        ? ", failed to remove " + (toDelNum - deletedNum) + " tracks."
         : ".";
 
     res.status(200).send({ message, toDelNum, deletedNum });
@@ -925,6 +922,148 @@ const pruneSingleLink: RequestHandler = async (req, res) => {
   }
 };
 
+const pruneChain: RequestHandler = async (req, res) => {
+  try {
+    if (!req.session.user)
+      throw new ReferenceError("session does not have user object");
+    const uID = req.session.user.id;
+    const { authHeaders } = req.session;
+    if (!authHeaders)
+      throw new ReferenceError("session does not have auth headers");
+
+    const { root } = req.body;
+    let rootPl;
+    try {
+      rootPl = parseSpotifyLink(root);
+      if (rootPl.type !== "playlist") {
+        res.status(400).send({ message: "Link is not a playlist" });
+        logger.debug("non-playlist link provided");
+        return null;
+      }
+    } catch (error) {
+      res.status(400).send({ message: "Could not parse link" });
+      logger.info("parseSpotifyLink", { error });
+      return null;
+    }
+
+    const playlists = await Playlists.findAll({
+      attributes: ["playlistID"],
+      raw: true,
+      where: { userID: uID },
+    });
+    const playlistIDs = playlists.map((pl) => pl.playlistID);
+
+    const allLinks = await Links.findAll({
+      attributes: ["from", "to"],
+      raw: true,
+      where: { userID: uID },
+    });
+
+    // current idea: only remove from the root, don't ripple-propagate
+    const newGraph = new myGraph(playlistIDs, allLinks);
+    const affectedPlaylists = newGraph.getAllTails(rootPl.id);
+
+    const editableStatuses = await Promise.all(
+      affectedPlaylists.map((pl) => {
+        return checkPlaylistEditable({
+          res,
+          authHeaders,
+          playlistID: pl,
+          userID: uID,
+        });
+      })
+    );
+    if (res.headersSent) return null; // error, resp sent and logged in singleRequest
+    // else, respond with the non-editable playlists
+    const nonEditablePlaylists = editableStatuses.filter(
+      (statusObj) => statusObj.status === false
+    );
+    if (nonEditablePlaylists.length > 0) {
+      let message =
+        "Cannot edit one or more playlists: " +
+        nonEditablePlaylists.map((pl) => pl.error?.playlistName).join(", ");
+      res.status(403).send({ message });
+      logger.debug(message, { nonEditablePlaylists });
+      return null;
+    }
+
+    const rootTracks = await _getPlaylistTracks({
+      res,
+      authHeaders,
+      playlistID: rootPl.id,
+    });
+    if (!rootTracks) return null;
+
+    const affectedPlaylistsTracks = await Promise.all(
+      affectedPlaylists.map((pl) => {
+        return _getPlaylistTracks({ res, authHeaders, playlistID: pl });
+      })
+    );
+    if (affectedPlaylistsTracks.some((plTracks) => !plTracks)) return null;
+
+    const pruneData = affectedPlaylistsTracks.map((plTracks) => {
+      return _pruneSingleLinkCore({
+        from: rootTracks.tracks,
+        to: plTracks!.tracks, // how to have the .some check recognized by typescript?
+      });
+    });
+    const pruneResult = await Promise.all(
+      pruneData.map(async ({ missingPositions }, index) => {
+        const toDelNum = missingPositions.length;
+        const playlistID = affectedPlaylists[index]!; // ...
+        let deletedNum = 0;
+        let currentSnapshot = affectedPlaylistsTracks[index]!.snapshotID;
+        while (missingPositions.length > 0) {
+          const nextBatch = missingPositions.splice(
+            Math.max(missingPositions.length - 100, 0),
+            100
+          );
+          const { resp } = await removePlaylistItems({
+            authHeaders,
+            nextBatch,
+            playlistID,
+            snapshotID: currentSnapshot,
+          });
+          if (!resp) break;
+          deletedNum += nextBatch.length;
+          currentSnapshot = resp.data.snapshot_id;
+        }
+        return { playlistID, toDelNum, deletedNum };
+      })
+    );
+    const reducedResult = pruneResult.reduce(
+      (acc, curr) => {
+        return {
+          toDelNum: acc.toDelNum + curr.toDelNum,
+          deletedNum: acc.deletedNum + curr.deletedNum,
+        };
+      },
+      { toDelNum: 0, deletedNum: 0 }
+    );
+
+    let message;
+    message = `There are ${pruneResult.length} playlists down the chain.`;
+    message +=
+      reducedResult.toDelNum > 0
+        ? " Removed " + reducedResult.deletedNum + " tracks"
+        : " No tracks to remove";
+    message +=
+      reducedResult.deletedNum < reducedResult.toDelNum
+        ? ", failed to remove " +
+          (reducedResult.toDelNum - reducedResult.deletedNum) +
+          " tracks."
+        : ".";
+
+    res.status(200).send({ message, ...reducedResult });
+    logger.debug(message, { ...reducedResult });
+    return null;
+  } catch (error) {
+    res.status(500).send({ message: "Internal Server Error" });
+    logger.error("pruneChain", { error });
+    return null;
+  }
+};
+
 export {
   updateUser,
   fetchUser,
@@ -933,4 +1072,5 @@ export {
   populateSingleLink,
   populateChain,
   pruneSingleLink,
+  pruneChain,
 };

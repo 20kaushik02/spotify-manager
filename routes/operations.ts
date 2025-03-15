@@ -9,6 +9,7 @@ import {
   populateSingleLink,
   pruneSingleLink,
   populateChain,
+  pruneChain,
 } from "../controllers/operations.ts";
 import { linkValidator, nodeValidator } from "../validators/operations.ts";
 
@@ -26,5 +27,6 @@ opRouter.put("/populate/link", linkValidator, validate, populateSingleLink);
 opRouter.put("/populate/chain", nodeValidator, validate, populateChain);
 
 opRouter.put("/prune/link", linkValidator, validate, pruneSingleLink);
+opRouter.put("/prune/chain", nodeValidator, validate, pruneChain);
 
 export default opRouter;

@@ -13,7 +13,7 @@ const metaFormat = (meta: object) => {
 const logFormat = printf(({ level, message, timestamp, stack, ...meta }) => {
   const errorObj: Error = meta["error"] as Error;
   if (errorObj) {
-    const stackStr = errorObj["stack"];
+    const stackStr = errorObj["stack"] ?? "";
     return (
       `${timestamp} [${level.toUpperCase()}]: ${message}` + // line 1
       `${metaFormat(errorObj)}\n` + // metadata
