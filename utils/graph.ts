@@ -34,12 +34,12 @@ class myGraph {
 
   getDirectHeads(node: GNode): GNode[] {
     return this.edges
-      .filter((edge) => edge.to == node)
+      .filter((edge) => edge.to === node)
       .map((edge) => edge.from);
   }
 
   getDirectHeadEdges(node: GNode): GEdge[] {
-    return this.edges.filter((edge) => edge.to == node);
+    return this.edges.filter((edge) => edge.to === node);
   }
 
   /** BFS */
@@ -61,7 +61,7 @@ class myGraph {
 
   getDirectTails(node: GNode): GNode[] {
     return this.edges
-      .filter((edge) => edge.from == node)
+      .filter((edge) => edge.from === node)
       .map((edge) => edge.to);
   }
 
@@ -70,7 +70,7 @@ class myGraph {
    * @returns {{ from: string, to: string }[]}
    */
   getDirectTailEdges(node: GNode): GEdge[] {
-    return this.edges.filter((edge) => edge.from == node);
+    return this.edges.filter((edge) => edge.from === node);
   }
 
   /** BFS */

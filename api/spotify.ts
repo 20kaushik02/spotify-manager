@@ -1,3 +1,5 @@
+import Bottleneck from "bottleneck";
+
 import { axiosInstance } from "./axios.ts";
 
 import {
@@ -50,6 +52,18 @@ type SingleRequestResult<RespDataType> = Promise<{
   message: string;
 }>;
 
+const rateLimiter = new Bottleneck({
+  // slow start
+  reservoir: 0,
+  reservoirIncreaseAmount: 2,
+  reservoirIncreaseInterval: 1000,
+  // for bursts
+  reservoirIncreaseMaximum: 30,
+
+  minTime: 200,
+  maxConcurrent: 10,
+});
+
 /**
  * Spotify API (v1) - one-off request handler
  */
@@ -67,9 +81,13 @@ const singleRequest = async <RespDataType>({
   try {
     if (!data || inlineData) {
       if (data) config.data = data ?? null;
-      resp = await axiosInstance[method](path, config);
+      resp = await rateLimiter.schedule(() =>
+        axiosInstance[method](path, config)
+      );
     } else {
-      resp = await axiosInstance[method](path, data, config);
+      resp = await rateLimiter.schedule(() =>
+        axiosInstance[method](path, data, config)
+      );
     }
     logger.debug(logPrefix + "Successful response received.");
     return { resp, message: "" };
