@@ -154,9 +154,7 @@ const updateUser: RequestHandler = async (req, res) => {
       });
       if (delNum !== deleted.length) {
         res.status(500).send({ message: "Internal Server Error" });
-        logger.error("Could not remove all old playlists", {
-          error: new Error("Playlists.destroy failed?"),
-        });
+        logger.error("Could not remove all old playlists");
         return null;
       }
     }
@@ -170,9 +168,7 @@ const updateUser: RequestHandler = async (req, res) => {
       );
       if (addPls.length !== added.length) {
         res.status(500).send({ message: "Internal Server Error" });
-        logger.error("Could not add all new playlists", {
-          error: new Error("Playlists.bulkCreate failed?"),
-        });
+        logger.error("Could not add all new playlists");
         return null;
       }
     }
@@ -189,9 +185,7 @@ const updateUser: RequestHandler = async (req, res) => {
       });
     } catch (error) {
       res.status(500).send({ message: "Internal Server Error" });
-      logger.error("Could not update playlist names", {
-        error: new Error("Playlists.update failed?"),
-      });
+      logger.error("Could not update playlist names");
       return null;
     }
 
@@ -272,13 +266,13 @@ const createLink: RequestHandler = async (req, res) => {
       fromPl = parseSpotifyLink(req.body.from);
       toPl = parseSpotifyLink(req.body.to);
       if (fromPl.type !== "playlist" || toPl.type !== "playlist") {
-        res.status(400).send({ message: "Link is not a playlist" });
-        logger.info("non-playlist link provided", { from: fromPl, to: toPl });
+        res.status(400).send({ message: "Links must be playlist links!" });
+        logger.debug("non-playlist link provided");
         return null;
       }
     } catch (error) {
       res.status(400).send({ message: "Could not parse link" });
-      logger.warn("parseSpotifyLink", { error });
+      logger.info("parseSpotifyLink", { error });
       return null;
     }
 
@@ -291,8 +285,8 @@ const createLink: RequestHandler = async (req, res) => {
 
     // if playlists are unknown
     if (![fromPl, toPl].every((pl) => playlistIDs.includes(pl.id))) {
-      res.status(404).send({ message: "Playlists out of sync." });
-      logger.warn("unknown playlists, resync");
+      res.status(404).send({ message: "Unknown playlists, resync first." });
+      logger.debug("unknown playlists, resync");
       return null;
     }
 
@@ -304,7 +298,7 @@ const createLink: RequestHandler = async (req, res) => {
     });
     if (existingLink) {
       res.status(409).send({ message: "Link already exists!" });
-      logger.info("link already exists");
+      logger.debug("link already exists");
       return null;
     }
 
@@ -322,8 +316,8 @@ const createLink: RequestHandler = async (req, res) => {
     if (newGraph.detectCycle()) {
       res
         .status(400)
-        .send({ message: "Proposed link cannot cause a cycle in the graph" });
-      logger.warn("potential cycle detected");
+        .send({ message: "The link cannot cause a cycle in the graph." });
+      logger.debug("potential cycle detected");
       return null;
     }
 
@@ -334,9 +328,7 @@ const createLink: RequestHandler = async (req, res) => {
     });
     if (!newLink) {
       res.status(500).send({ message: "Internal Server Error" });
-      logger.error("Could not create link", {
-        error: new Error("Links.create failed?"),
-      });
+      logger.error("Could not create link");
       return null;
     }
 
@@ -364,13 +356,13 @@ const removeLink: RequestHandler = async (req, res) => {
       fromPl = parseSpotifyLink(req.body.from);
       toPl = parseSpotifyLink(req.body.to);
       if (fromPl.type !== "playlist" || toPl.type !== "playlist") {
-        res.status(400).send({ message: "Link is not a playlist" });
-        logger.info("non-playlist link provided", { from: fromPl, to: toPl });
+        res.status(400).send({ message: "Links must be playlist links!" });
+        logger.debug("non-playlist link provided");
         return null;
       }
     } catch (error) {
       res.status(400).send({ message: "Could not parse link" });
-      logger.warn("parseSpotifyLink", { error });
+      logger.info("parseSpotifyLink", { error });
       return null;
     }
 
@@ -382,7 +374,7 @@ const removeLink: RequestHandler = async (req, res) => {
     });
     if (!existingLink) {
       res.status(409).send({ message: "Link does not exist!" });
-      logger.warn("link does not exist");
+      logger.debug("link does not exist");
       return null;
     }
 
@@ -393,9 +385,7 @@ const removeLink: RequestHandler = async (req, res) => {
     });
     if (!removedLink) {
       res.status(500).send({ message: "Internal Server Error" });
-      logger.error("Could not remove link", {
-        error: new Error("Links.destroy failed?"),
-      });
+      logger.error("Could not remove link");
       return null;
     }
 
@@ -560,12 +550,12 @@ const populateSingleLink: RequestHandler = async (req, res) => {
       toPl = parseSpotifyLink(link.to);
       if (fromPl.type !== "playlist" || toPl.type !== "playlist") {
         res.status(400).send({ message: "Link is not a playlist" });
-        logger.info("non-playlist link provided", link);
+        logger.debug("non-playlist link provided", { link });
         return null;
       }
     } catch (error) {
       res.status(400).send({ message: "Could not parse link" });
-      logger.warn("parseSpotifyLink", { error });
+      logger.info("parseSpotifyLink", { error });
       return null;
     }
 
@@ -577,21 +567,21 @@ const populateSingleLink: RequestHandler = async (req, res) => {
     });
     if (!existingLink) {
       res.status(409).send({ message: "Link does not exist!" });
-      logger.warn("link does not exist", { link });
+      logger.debug("link does not exist", { link });
       return null;
     }
 
-    if (
-      !(
-        await checkPlaylistEditable({
-          authHeaders,
-          res,
-          playlistID: fromPl.id,
-          userID: uID,
-        })
-      ).status
-    )
+    const editableResp = await checkPlaylistEditable({
+      res,
+      authHeaders,
+      playlistID: fromPl.id,
+      userID: uID,
+    });
+    if (!editableResp.status) {
+      res.status(403).send({ message: editableResp.message });
+      logger.debug(editableResp.message, { editableResp });
       return null;
+    }
 
     const fromTracks = await _getPlaylistTracks({
       res,
@@ -659,12 +649,12 @@ const populateChain: RequestHandler = async (req, res) => {
       rootPl = parseSpotifyLink(root);
       if (rootPl.type !== "playlist") {
         res.status(400).send({ message: "Link is not a playlist" });
-        logger.info("non-playlist link provided", root);
+        logger.debug("non-playlist link provided");
         return null;
       }
     } catch (error) {
       res.status(400).send({ message: "Could not parse link" });
-      logger.warn("parseSpotifyLink", { error });
+      logger.info("parseSpotifyLink", { error });
       return null;
     }
 
@@ -691,14 +681,26 @@ const populateChain: RequestHandler = async (req, res) => {
     const editableStatuses = await Promise.all(
       affectedPlaylists.map((pl) => {
         return checkPlaylistEditable({
+          res,
           authHeaders,
           playlistID: pl,
           userID: uID,
         });
       })
     );
-    if (editableStatuses.some((statusObj) => statusObj.status === false))
+    if (res.headersSent) return null; // error, resp sent and logged in singleRequest
+    // else, respond with the non-editable playlists
+    const nonEditablePlaylists = editableStatuses.filter(
+      (statusObj) => statusObj.status === false
+    );
+    if (nonEditablePlaylists.length > 0) {
+      let message =
+        "Cannot edit one or more playlists: " +
+        nonEditablePlaylists.map((pl) => pl.error?.playlistName).join(", ");
+      res.status(403).send({ message });
+      logger.debug(message, { nonEditablePlaylists });
       return null;
+    }
 
     const affectedPlaylistsTracks = await Promise.all(
       affectedPlaylists.map((pl) => {
@@ -830,12 +832,12 @@ const pruneSingleLink: RequestHandler = async (req, res) => {
       toPl = parseSpotifyLink(link.to);
       if (fromPl.type !== "playlist" || toPl.type !== "playlist") {
         res.status(400).send({ message: "Link is not a playlist" });
-        logger.info("non-playlist link provided", link);
+        logger.debug("non-playlist link provided");
         return null;
       }
     } catch (error: any) {
       res.status(400).send({ message: error.message });
-      logger.warn("parseSpotifyLink", { error });
+      logger.info("parseSpotifyLink", { error });
       return null;
     }
 
@@ -851,17 +853,17 @@ const pruneSingleLink: RequestHandler = async (req, res) => {
       return null;
     }
 
-    if (
-      !(
-        await checkPlaylistEditable({
-          authHeaders,
-          res,
-          playlistID: toPl.id,
-          userID: uID,
-        })
-      ).status
-    )
+    const editableResp = await checkPlaylistEditable({
+      res,
+      authHeaders,
+      playlistID: toPl.id,
+      userID: uID,
+    });
+    if (!editableResp.status) {
+      res.status(403).send({ message: editableResp.message });
+      logger.debug(editableResp.message, { editableResp });
       return null;
+    }
 
     const fromTracks = await _getPlaylistTracks({
       res,

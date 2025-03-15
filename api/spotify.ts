@@ -98,7 +98,8 @@ const singleRequest = async <RespDataType>({
       message = message.concat(
         `${error.response.status} - ${error.response.data?.error?.message}`
       );
-      res?.status(error.response.status).send(error.response.data);
+      if (res && !res.headersSent)
+        res.status(error.response.status).send(error.response.data);
       logger.warn(message, {
         response: {
           data: error.response.data,
@@ -109,13 +110,14 @@ const singleRequest = async <RespDataType>({
     } else if (error.request) {
       // Request sent, but no response received
       message = message.concat("No response");
-      res?.status(504).send({ message });
+      if (res && !res.headersSent) res.status(504).send({ message });
       logger.error(message, { error });
       return { error, message };
     } else {
       // Something happened in setting up the request that triggered an Error
       message = message.concat("Request failed");
-      res?.status(500).send({ message: "Internal Server Error" });
+      if (res && !res.headersSent)
+        res.status(500).send({ message: "Internal Server Error" });
       logger.error(message, { error });
       return { error, message };
     }
@@ -168,9 +170,7 @@ const getCurrentUsersPlaylistsNextPage: (
   });
 };
 
-interface GetPlaylistDetailsFirstPageArgs
-  extends Omit<EndpointHandlerWithResArgs, "res"> {
-  res?: Res;
+interface GetPlaylistDetailsFirstPageArgs extends EndpointHandlerWithResArgs {
   initialFields: string;
   playlistID: string;
 }
@@ -257,9 +257,7 @@ const removePlaylistItems: (
 // non-endpoints, i.e. convenience wrappers
 // ---------
 
-interface CheckPlaylistEditableArgs
-  extends Omit<EndpointHandlerWithResArgs, "res"> {
-  res?: Res;
+interface CheckPlaylistEditableArgs extends EndpointHandlerWithResArgs {
   playlistID: string;
   userID: string;
 }
@@ -276,14 +274,13 @@ const checkPlaylistEditable: (
   playlistID,
   userID,
 }) => {
-  let checkFields = ["collaborative", "owner(id)"];
-  let args: GetPlaylistDetailsFirstPageArgs = {
+  let checkFields = ["collaborative", "owner(id)", "name"];
+  const { resp, error, message } = await getPlaylistDetailsFirstPage({
+    res,
     authHeaders,
     initialFields: checkFields.join(),
     playlistID,
-  };
-  if (res) args.res = res;
-  const { resp, error, message } = await getPlaylistDetailsFirstPage(args);
+  });
   if (!resp) return { status: false, error, message };
 
   // https://web.archive.org/web/20241226081630/https://developer.spotify.com/documentation/web-api/concepts/playlists#:~:text=A%20playlist%20can%20also%20be%20made%20collaborative

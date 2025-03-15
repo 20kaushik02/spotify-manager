@@ -79,10 +79,10 @@ const callback: RequestHandler = async (req, res) => {
           Authorization: `Bearer ${req.session.accessToken}`,
         };
       } else {
-        logger.error("login failed", { statusCode: tokenResponse.status });
         res
           .status(tokenResponse.status)
           .send({ message: "Error: Login failed" });
+        logger.error("login failed", { statusCode: tokenResponse.status });
         return null;
       }
 
