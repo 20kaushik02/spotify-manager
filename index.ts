@@ -20,6 +20,7 @@ import { getCurrentUsersProfile } from "./api/spotify.ts";
 import authRoutes from "./routes/auth.ts";
 import playlistRoutes from "./routes/playlists.ts";
 import operationRoutes from "./routes/operations.ts";
+import loadRoutes from "./routes/load.ts";
 
 import logger from "./utils/logger.ts";
 
@@ -109,6 +110,7 @@ app.use("/auth-health", isAuthenticated, async (req, res) => {
 app.use("/api/auth/", authRoutes);
 app.use("/api/playlists", isAuthenticated, playlistRoutes);
 app.use("/api/operations", isAuthenticated, operationRoutes);
+app.use("/api/load", isAuthenticated, loadRoutes);
 
 // Fallbacks
 app.use((req, res) => {
