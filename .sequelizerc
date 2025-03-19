@@ -1,6 +1,0 @@
-import _ from "./config/dotenv.ts";
-
-import { resolve } from "path";
-export default {
-  config: resolve("config", "sequelize.ts"),
-};

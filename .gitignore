@@ -109,4 +109,4 @@ dist
 
 # production
 /build
-/tsout
+/dist

@@ -1,0 +1,9 @@
+services:
+  web:
+    environment:
+      NODE_ENV: development
+    env_file:
+      - .env
+      - .env.local
+      - .env.development
+      - .env.development.local

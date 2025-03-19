@@ -2,13 +2,21 @@ import type { SequelizeOptions } from "sequelize-typescript";
 
 import logger from "../utils/logger.ts";
 
-type ConnConfigs = Record<string, SequelizeOptions>;
+interface SeqOptsWithURI extends SequelizeOptions {
+  use_env_variable: string;
+}
+type ConnConfigs = Record<string, SeqOptsWithURI>;
 
 // env-specific config
 const connConfigs: ConnConfigs = {
-  development: {},
-  test: {},
+  development: {
+    use_env_variable: "DB_URI",
+  },
+  test: {
+    use_env_variable: "DB_URI",
+  },
   production: {
+    use_env_variable: "DB_URI",
     // dialectOptions: {
     //   ssl: true,
     // },

@@ -1,0 +1,45 @@
+services:
+  postgres:
+    container_name: spotify-manager-postgres
+    image: postgres
+    restart: on-failure
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: spotify-manager
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    user: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d spotify-manager"]
+      interval: 1s
+      retries: 5
+      timeout: 5s
+  redis:
+    container_name: spotify-manager-redis
+    image: redis/redis-stack-server:latest
+    restart: on-failure
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 1s
+      retries: 5
+      timeout: 3s
+  web:
+    container_name: spotify-manager
+    build:
+      context: .
+    init: true
+    restart: on-failure
+    ports:
+      - 127.0.0.1:9001:9001
+    depends_on:
+      postgres:
+        condition: service_healthy
+        restart: true
+      redis:
+        condition: service_healthy
+        restart: true
+volumes:
+  postgres_data:
+  redis_data:

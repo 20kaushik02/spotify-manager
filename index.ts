@@ -1,5 +1,3 @@
-import _ from "./config/dotenv.ts";
-
 import { promisify } from "util";
 import express from "express";
 import session from "express-session";

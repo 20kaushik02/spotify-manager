@@ -1,6 +1,7 @@
 import path from "path";
 
-import { createLogger, transports, config, format, type Logger } from "winston";
+import { createLogger, transports, config, format } from "winston";
+import type { Logger } from "winston";
 
 const { combine, timestamp, printf } = format;
 

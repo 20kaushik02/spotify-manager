@@ -8,14 +8,16 @@ import playlists from "./playlists.ts";
 
 import logger from "../utils/logger.ts";
 
+// Initialize
 if (!process.env["NODE_ENV"])
   throw new TypeError("Node environment not defined");
-if (!process.env["DB_URI"])
-  throw new TypeError("Database connection URI not defined");
-
-// Initialize
 const config = seqConfig[process.env["NODE_ENV"]];
-const seqConn: Sequelize = new Sequelize(process.env["DB_URI"], config);
+if (!config) throw new TypeError("Unknown environment");
+
+const dbURI = process.env[config.use_env_variable];
+if (!dbURI) throw new TypeError("Database connection URI not defined");
+
+const seqConn: Sequelize = new Sequelize(dbURI, config);
 
 try {
   await seqConn.authenticate();

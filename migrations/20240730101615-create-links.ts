@@ -1,5 +1,5 @@
 "use strict";
-import { type Migration } from "sequelize-cli";
+import type { Migration } from "sequelize-cli";
 export default {
   up: async function (queryInterface, Sequelize) {
     await queryInterface.createTable("links", {
