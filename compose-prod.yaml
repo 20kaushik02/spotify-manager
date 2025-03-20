@@ -1,5 +1,5 @@
 services:
-  web:
+  api:
     environment:
       NODE_ENV: production
     env_file:

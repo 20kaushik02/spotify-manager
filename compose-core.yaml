@@ -10,23 +10,24 @@ services:
       - postgres_data:/var/lib/postgresql/data
     user: postgres
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d spotify-manager"]
+      test: ["CMD-SHELL", 'psql -d spotify-manager -c "select version();"']
       interval: 1s
       retries: 5
       timeout: 5s
   redis:
     container_name: spotify-manager-redis
-    image: redis/redis-stack-server:latest
+    image: redis
     restart: on-failure
     volumes:
       - redis_data:/data
+    user: redis
     healthcheck:
       test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
       interval: 1s
       retries: 5
       timeout: 3s
-  web:
-    container_name: spotify-manager
+  api:
+    container_name: spotify-manager-api
     build:
       context: .
     init: true

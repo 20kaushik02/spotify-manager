@@ -430,9 +430,9 @@ const _getPlaylistTracks: (
     "playlist_snapshot:" + playlistID
   );
   if (cachedSnapshotID === currentSnapshotID) {
-    const cachedTracksData = (await redisClient.json.get(
-      "playlist_tracks:" + playlistID
-    )) as _TrackObj[];
+    const cachedTracksData = JSON.parse(
+      (await redisClient.get("playlist_tracks:" + playlistID)) ?? "[]"
+    ) as _TrackObj[];
     return { tracks: cachedTracksData, snapshotID: cachedSnapshotID };
   }
   let firstPageFields = ["tracks(next,items(is_local,track(uri)))"];
@@ -489,7 +489,10 @@ const _getPlaylistTracks: (
 
   // cache new data
   await redisClient.set("playlist_snapshot:" + playlistID, currentSnapshotID);
-  await redisClient.json.set("playlist_tracks:" + playlistID, "$", pl.tracks);
+  await redisClient.set(
+    "playlist_tracks:" + playlistID,
+    JSON.stringify(pl.tracks)
+  );
 
   return pl;
 };
