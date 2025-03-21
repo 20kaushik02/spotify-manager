@@ -28,8 +28,7 @@ services:
       timeout: 3s
   api:
     container_name: spotify-manager-api
-    build:
-      context: .
+    image: kaushikr2/spotify-manager-api
     init: true
     restart: on-failure
     ports:
