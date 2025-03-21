@@ -26,17 +26,17 @@ const app = express();
 
 // check env vars
 if (
-  isNaN(Number(process.env["TRUST_PROXY"])) ||
-  ![0, 1].includes(Number(process.env["TRUST_PROXY"]))
+  isNaN(Number(process.env["SPOTMGR_TRUST_PROXY"])) ||
+  ![0, 1].includes(Number(process.env["SPOTMGR_TRUST_PROXY"]))
 ) {
-  throw new TypeError("TRUST_PROXY must be 0 or 1");
+  throw new TypeError("SPOTMGR_TRUST_PROXY must be 0 or 1");
 }
-if (!process.env["SESSION_SECRET"]) {
-  throw new TypeError("SESSION_SECRET cannot be undefined");
+if (!process.env["SPOTMGR_SESSION_SECRET"]) {
+  throw new TypeError("SPOTMGR_SESSION_SECRET cannot be undefined");
 }
 
 // Enable this if you run behind a proxy (e.g. nginx)
-app.set("trust proxy", process.env["TRUST_PROXY"]);
+app.set("trust proxy", process.env["SPOTMGR_TRUST_PROXY"]);
 
 const redisStore = new RedisStore({ client: redisClient });
 
@@ -45,11 +45,11 @@ app.use(
   session({
     name: sessionName,
     store: redisStore,
-    secret: process.env["SESSION_SECRET"],
+    secret: process.env["SPOTMGR_SESSION_SECRET"],
     resave: false,
     saveUninitialized: false,
     cookie: {
-      domain: process.env["BASE_DOMAIN"],
+      domain: process.env["SPOTMGR_BASE_DOMAIN"],
       httpOnly: true, // if true prevent client side JS from reading the cookie
       maxAge: 7 * 24 * 60 * 60 * 1000, // 1 week
       sameSite: process.env["NODE_ENV"] === "development" ? "lax" : "none", // cross-site for production
@@ -60,7 +60,7 @@ app.use(
 
 app.use(
   cors({
-    origin: process.env["APP_URI"],
+    origin: process.env["SPOTMGR_APP_URI"],
     credentials: true,
   })
 );
@@ -121,7 +121,7 @@ app.use((req, res) => {
   return null;
 });
 
-const port = process.env["PORT"] || 5000;
+const port = process.env["SPOTMGR_PORT"] || 5000;
 
 const server = app.listen(port, () => {
   logger.info(`App Listening on port ${port}`);

@@ -2,12 +2,12 @@ import { createClient } from "redis";
 
 import logger from "../utils/logger.ts";
 
-if (!process.env["REDIS_URI"])
+if (!process.env["SPOTMGR_REDIS_URI"])
   throw new TypeError("Redis connection URI not defined");
 
 // Initialize
 const redisClient: ReturnType<typeof createClient> = createClient({
-  url: process.env["REDIS_URI"],
+  url: process.env["SPOTMGR_REDIS_URI"],
   socket: {
     keepAlive: 25 * 1000, // 25s
     connectTimeout: 15 * 1000,

@@ -10,13 +10,13 @@ type ConnConfigs = Record<string, SeqOptsWithURI>;
 // env-specific config
 const connConfigs: ConnConfigs = {
   development: {
-    use_env_variable: "DB_URI",
+    use_env_variable: "SPOTMGR_DB_URI",
   },
   test: {
-    use_env_variable: "DB_URI",
+    use_env_variable: "SPOTMGR_DB_URI",
   },
   production: {
-    use_env_variable: "DB_URI",
+    use_env_variable: "SPOTMGR_DB_URI",
     // dialectOptions: {
     //   ssl: true,
     // },

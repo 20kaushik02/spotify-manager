@@ -13,7 +13,7 @@ const authInstance: AxiosInstance = axios.create({
     Authorization:
       "Basic " +
       Buffer.from(
-        process.env["CLIENT_ID"] + ":" + process.env["CLIENT_SECRET"]
+        process.env["SPOTMGR_CLIENT_ID"] + ":" + process.env["SPOTMGR_CLIENT_SECRET"]
       ).toString("base64"),
   },
 });

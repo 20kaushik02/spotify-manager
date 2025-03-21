@@ -25,9 +25,9 @@ const login: RequestHandler = async (_req, res) => {
       `${accountsAPIURL}/authorize?` +
         new URLSearchParams({
           response_type: "code",
-          client_id: process.env["CLIENT_ID"],
+          client_id: process.env["SPOTMGR_CLIENT_ID"],
           scope: Object.values(requiredScopes).join(" "),
-          redirect_uri: process.env["REDIRECT_URI"],
+          redirect_uri: process.env["SPOTMGR_REDIRECT_URI"],
           state: state,
         } as Record<string, string>).toString()
     );
@@ -63,7 +63,7 @@ const callback: RequestHandler = async (req, res) => {
 
       const authForm = {
         code: code,
-        redirect_uri: process.env["REDIRECT_URI"],
+        redirect_uri: process.env["SPOTMGR_REDIRECT_URI"],
         grant_type: "authorization_code",
       } as Record<string, string>;
 
@@ -98,7 +98,7 @@ const callback: RequestHandler = async (req, res) => {
       };
 
       // res.status(200).send({ message: "OK" });
-      res.redirect(process.env["APP_URI"] + "?login=success");
+      res.redirect(process.env["SPOTMGR_APP_URI"] + "?login=success");
       logger.debug("New login.", { username: resp.data.display_name });
       return null;
     }
@@ -167,7 +167,7 @@ const logout: RequestHandler = async (req, res) => {
       } else {
         res.clearCookie(sessionName);
         // res.status(200).send({ message: "OK" });
-        res.redirect(process.env["APP_URI"] + "?logout=success");
+        res.redirect(process.env["SPOTMGR_APP_URI"] + "?logout=success");
         logger.debug("Logged out.", { sessionID: delSession.id });
       }
     });
