@@ -25,18 +25,16 @@ import logger from "./utils/logger.ts";
 const app = express();
 
 // check env vars
-if (
-  isNaN(Number(process.env["SPOTMGR_TRUST_PROXY"])) ||
-  ![0, 1].includes(Number(process.env["SPOTMGR_TRUST_PROXY"]))
-) {
-  throw new TypeError("SPOTMGR_TRUST_PROXY must be 0 or 1");
+const trustProxySetting = Number(process.env["SPOTMGR_TRUST_PROXY"]);
+if (isNaN(trustProxySetting)) {
+  throw new TypeError("SPOTMGR_TRUST_PROXY must be a number");
 }
 if (!process.env["SPOTMGR_SESSION_SECRET"]) {
   throw new TypeError("SPOTMGR_SESSION_SECRET cannot be undefined");
 }
 
 // Enable this if you run behind a proxy (e.g. nginx)
-app.set("trust proxy", process.env["SPOTMGR_TRUST_PROXY"]);
+app.set("trust proxy", trustProxySetting);
 
 const redisStore = new RedisStore({ client: redisClient });
 

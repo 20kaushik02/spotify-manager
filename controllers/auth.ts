@@ -96,10 +96,17 @@ const callback: RequestHandler = async (req, res) => {
         username: resp.data.display_name ?? "",
         id: resp.data.id,
       };
-
-      // res.status(200).send({ message: "OK" });
-      res.redirect(process.env["SPOTMGR_APP_URI"] + "?login=success");
-      logger.debug("New login.", { username: resp.data.display_name });
+      req.session.save((err) => {
+        if (err) {
+          res.status(500).send({ message: "Login failed" });
+          logger.error("req.session.save", { err });
+        } else {
+          // res.status(200).send({ message: "OK" });
+          res.redirect(process.env["SPOTMGR_APP_URI"] + "?login=success");
+          logger.debug("New login.", { username: resp.data.display_name });
+        }
+        return null;
+      });
       return null;
     }
   } catch (error) {
