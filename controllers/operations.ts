@@ -509,14 +509,15 @@ const _populateSingleLinkCore: (opts: _TrackFilterArgs) => _PopulateFilter = ({
   to,
 }) => {
   const fromTrackURIs = from.map((track) => track.uri);
-  let toTrackURIs = to
-    .filter((track) => !track.is_local) // API doesn't support adding local files to playlists yet
-    .filter((track) => !fromTrackURIs.includes(track.uri)) // only ones missing from the 'from' playlist
-    .map((track) => track.uri);
-
+  let missingTrackObjs = to.filter(
+    (trackObj) => !fromTrackURIs.includes(trackObj.uri) // only ones missing from the 'from' playlist
+  );
+  // API doesn't support adding local files to playlists yet
   return {
-    missing: toTrackURIs,
-    localNum: to.filter((track) => track.is_local).length,
+    missing: missingTrackObjs
+      .filter((track) => !track.is_local)
+      .map((track) => track.uri),
+    localNum: missingTrackObjs.filter((track) => track.is_local).length,
   };
 };
 
