@@ -36,7 +36,7 @@
     "sequelize": "^6.37.7",
     "sequelize-cli": "^6.6.2",
     "sequelize-typescript": "^2.1.6",
-    "serializr": "^3.0.3",
+    "serializr": "^3.0.4",
     "winston": "^3.17.0"
   },
   "devDependencies": {
