@@ -34,7 +34,7 @@
     "redis": "^4.7.0",
     "reflect-metadata": "^0.2.2",
     "sequelize": "^6.37.7",
-    "sequelize-cli": "^6.6.2",
+    "sequelize-cli": "^6.6.3",
     "sequelize-typescript": "^2.1.6",
     "serializr": "^3.0.4",
     "winston": "^3.17.0"
