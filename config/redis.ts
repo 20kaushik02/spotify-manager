@@ -9,7 +9,8 @@ if (!process.env["SPOTMGR_REDIS_URI"])
 const redisClient: ReturnType<typeof createClient> = createClient({
   url: process.env["SPOTMGR_REDIS_URI"],
   socket: {
-    keepAlive: 25 * 1000, // 25s
+    keepAlive: true,
+    keepAliveInitialDelay: 25 * 1000, // 25s
     connectTimeout: 15 * 1000,
   },
 });

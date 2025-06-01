@@ -33,11 +33,11 @@ const exportData: RequestHandler = async (req, res) => {
     );
     res.send(JSON.stringify({ currentPlaylists, currentLinks }));
     logger.debug("exported data");
-    return null;
+    return;
   } catch (error) {
     res.status(500).send({ message: "Internal Server Error" });
     logger.error("exportData", { error });
-    return null;
+    return;
   }
 };
 
@@ -50,7 +50,7 @@ const importData: RequestHandler = async (req, res) => {
     if (!req.file) {
       res.status(400).send({ message: "No file provided!" });
       logger.debug("no file provided");
-      return null;
+      return;
     }
     let exportedLinks: Pick<Links, "from" | "to">[];
     let exportedPls: Pick<Playlists, "playlistID" | "playlistName">[];
@@ -62,7 +62,7 @@ const importData: RequestHandler = async (req, res) => {
       const message = "Could not parse data file";
       res.status(400).send({ message });
       logger.info(message, { error });
-      return null;
+      return;
     }
 
     const delPlNum = await Playlists.destroy({ where: { userID: uID } });
@@ -100,11 +100,11 @@ const importData: RequestHandler = async (req, res) => {
       links: addedLinks.length,
       playlists: addedPls.length,
     });
-    return null;
+    return;
   } catch (error) {
     res.status(500).send({ message: "Internal Server Error" });
     logger.error("exportData", { error });
-    return null;
+    return;
   }
 };
 

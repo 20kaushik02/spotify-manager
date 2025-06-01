@@ -15,14 +15,14 @@ const isAuthenticated: RequestHandler = (req, res, next) => {
       if (Object.keys(error).length) {
         res.status(500).send({ message: "Internal Server Error" });
         logger.error("session.destroy", { error });
-        return null;
+        return;
       } else {
         res.clearCookie(sessionName);
         res.status(401).send({ message: "Unauthorized" });
         logger.debug("Session invalid, destroyed.", {
           sessionID: delSession.id,
         });
-        return null;
+        return;
       }
     });
   }

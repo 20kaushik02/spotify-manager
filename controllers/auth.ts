@@ -31,11 +31,11 @@ const login: RequestHandler = async (_req, res) => {
           state: state,
         } as Record<string, string>).toString()
     );
-    return null;
+    return;
   } catch (error) {
     res.status(500).send({ message: "Internal Server Error" });
     logger.error("login", { error });
-    return null;
+    return;
   }
 };
 
@@ -52,11 +52,11 @@ const callback: RequestHandler = async (req, res) => {
     if (state === null || state !== storedState) {
       res.status(409).send({ message: "Invalid state" });
       logger.warn("state mismatch");
-      return null;
+      return;
     } else if (error) {
       res.status(401).send({ message: "Auth callback error" });
       logger.error("callback error", { error });
-      return null;
+      return;
     } else {
       // get auth tokens
       res.clearCookie(stateKey);
@@ -83,14 +83,14 @@ const callback: RequestHandler = async (req, res) => {
           .status(tokenResponse.status)
           .send({ message: "Error: Login failed" });
         logger.error("login failed", { statusCode: tokenResponse.status });
-        return null;
+        return;
       }
 
       const { resp } = await getCurrentUsersProfile({
         res,
         authHeaders,
       });
-      if (!resp) return null;
+      if (!resp) return;
 
       req.session.user = {
         username: resp.data.display_name ?? "",
@@ -105,14 +105,14 @@ const callback: RequestHandler = async (req, res) => {
           res.redirect(process.env["SPOTMGR_APP_URI"] + "?login=success");
           logger.debug("New login.", { username: resp.data.display_name });
         }
-        return null;
+        return;
       });
-      return null;
+      return;
     }
   } catch (error) {
     res.status(500).send({ message: "Internal Server Error" });
     logger.error("callback", { error });
-    return null;
+    return;
   }
 };
 
@@ -144,7 +144,7 @@ const refresh: RequestHandler = async (req, res) => {
             : ""
         }.`
       );
-      return null;
+      return;
     } else {
       res
         .status(response.status)
@@ -153,12 +153,12 @@ const refresh: RequestHandler = async (req, res) => {
         statusCode: response.status,
         data: response.data,
       });
-      return null;
+      return;
     }
   } catch (error) {
     res.status(500).send({ message: "Internal Server Error" });
     logger.error("refresh", { error });
-    return null;
+    return;
   }
 };
 
@@ -178,11 +178,11 @@ const logout: RequestHandler = async (req, res) => {
         logger.debug("Logged out.", { sessionID: delSession.id });
       }
     });
-    return null;
+    return;
   } catch (error) {
     res.status(500).send({ message: "Internal Server Error" });
     logger.error("logout", { error });
-    return null;
+    return;
   }
 };
 

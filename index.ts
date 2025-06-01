@@ -84,7 +84,7 @@ app.use(express.static(import.meta.dirname + "/static"));
 // Healthcheck
 app.use("/health", (_req, res) => {
   res.status(200).send({ message: "OK" });
-  return null;
+  return;
 });
 app.use("/auth-health", isAuthenticated, async (req, res) => {
   try {
@@ -92,13 +92,13 @@ app.use("/auth-health", isAuthenticated, async (req, res) => {
     if (!authHeaders)
       throw new ReferenceError("session does not have auth headers");
     const { resp } = await getCurrentUsersProfile({ authHeaders, res });
-    if (!resp) return null;
+    if (!resp) return;
     res.status(200).send({ message: "OK" });
-    return null;
+    return;
   } catch (error) {
     res.status(500).send({ message: "Internal Server Error" });
     logger.error("authHealthCheck", { error });
-    return null;
+    return;
   }
 });
 
@@ -116,7 +116,7 @@ app.use((req, res) => {
       'Guess the <a href="https://github.com/20kaushik02/spotify-manager">cat\'s</a> out of the bag!'
     );
   logger.info("404", { url: req.url });
-  return null;
+  return;
 });
 
 const port = process.env["SPOTMGR_PORT"] || 5000;

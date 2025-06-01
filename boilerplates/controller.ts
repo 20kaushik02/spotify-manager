@@ -4,11 +4,11 @@ import logger from "../utils/logger.ts";
 
 const __controller_func: RequestHandler = async (req, res) => {
   try {
-    return null;
+    return;
   } catch (error) {
     res.status(500).send({ message: "Internal Server Error" });
     logger.error("__controller_func", { error });
-    return null;
+    return;
   }
 };
 

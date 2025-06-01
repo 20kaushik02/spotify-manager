@@ -24,7 +24,7 @@ const fetchUserPlaylists: RequestHandler = async (req, res) => {
       res,
       authHeaders,
     });
-    if (!resp) return null;
+    if (!resp) return;
 
     const userPlaylists: Pick<
       Pagination<SimplifiedPlaylistObject>,
@@ -41,7 +41,7 @@ const fetchUserPlaylists: RequestHandler = async (req, res) => {
         res,
         nextURL,
       });
-      if (!resp) return null;
+      if (!resp) return;
       const nextData = resp.data;
 
       userPlaylists.items.push(...nextData.items);
@@ -50,11 +50,11 @@ const fetchUserPlaylists: RequestHandler = async (req, res) => {
 
     res.status(200).send(userPlaylists);
     logger.debug("Fetched user playlists", { num: userPlaylists.total });
-    return null;
+    return;
   } catch (error) {
     res.status(500).send({ message: "Internal Server Error" });
     logger.error("fetchUserPlaylists", { error });
-    return null;
+    return;
   }
 };
 

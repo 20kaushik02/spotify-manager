@@ -32,7 +32,7 @@ const validate: RequestHandler = (req, res, next) => {
     errors: extractedErrors,
   });
   logger.warn("invalid request", { extractedErrors });
-  return null;
+  return;
 };
 
 export { validate };
