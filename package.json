@@ -31,7 +31,7 @@
     "helmet": "^8.1.0",
     "multer": "^2.0.1",
     "pg": "^8.16.0",
-    "redis": "^5.1.1",
+    "redis": "^5.5.5",
     "reflect-metadata": "^0.2.2",
     "sequelize": "^6.37.7",
     "sequelize-cli": "^6.6.3",
